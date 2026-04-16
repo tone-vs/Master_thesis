@@ -4,13 +4,16 @@
 # =============================================================================
 # Author:  [Your name]
 # Date:    2025
-# Purpose: Load and clean OECD WIPO patent counts for semiconductor-relevant
-#          economies; compute 3-year average (2020–2022) and log-normalised
-#          scores for use as node attributes in the network analysis.
-# Inputs:  OECD WIPO patent CSV (placed in project root)
+# Purpose: Load and clean OECD WIPO patent counts; compute 3-year average
+#          (2020–2022) and log-normalised scores for use as node attributes.
+#          Country set is derived dynamically from the network (all_nodes)
+#          so patent coverage always matches the analysis exactly.
+# Inputs:  data/raw/oecd_patents_wipo.csv
+#          patent_countries — ISO3 vector passed from build_network_data.R,
+#            OR data/processed/node_attributes.csv for standalone runs
 # Outputs: data/processed/patents_avg.csv
 #          patents_avg — tibble, joined onto node attribute table
-#          Used in:    combining_data.R / final_analysis.Rmd
+#          Used in:    build_network_data.R / final_analysis.Rmd
 # =============================================================================
 
 # --- Libraries ---------------------------------------------------------------
@@ -18,11 +21,25 @@ library(dplyr)
 library(readr)
 
 # --- Country set -------------------------------------------------------------
-countries <- c(
-  "USA", "KOR", "TWN", "JPN", "CHN", "NLD", "DEU",
-  "MYS", "SGP", "VNM", "IRL", "ISR", "FRA", "AUT",
-  "IND", "NOR", "SWE", "FIN", "DNK"
-)
+# When sourced by build_network_data.R, `patent_countries` is passed in from
+# the environment (set just after all_nodes is built) so the patent country
+# set matches the network exactly.
+# When run standalone after a prior full pipeline run, fall back to loading
+# the country set from the saved node_attributes.csv.
+if (exists("patent_countries")) {
+  countries <- patent_countries
+} else if (file.exists("data/processed/node_attributes.csv")) {
+  countries <- read_csv(
+    "data/processed/node_attributes.csv",
+    show_col_types = FALSE
+  ) |> pull(iso3)
+} else {
+  stop(paste(
+    "Country set not available.",
+    "Either run build_network_data.R (which sources this script automatically),",
+    "or ensure data/processed/node_attributes.csv exists from a prior run."
+  ))
+}
 
 # --- Load --------------------------------------------------------------------
 # Original OECD query filename preserved in data/raw/ for provenance.

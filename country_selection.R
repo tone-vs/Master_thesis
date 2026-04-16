@@ -24,7 +24,7 @@ library(purrr)
 
 set_primary_comtrade_key(Sys.getenv("COMTRADE_PRIMARY_KEY"))
 
-COVERAGE_THRESHOLD <- 0.90   # ≥90% of world semiconductor exports
+COVERAGE_THRESHOLD <- 0.99   # ≥90% of world semiconductor exports
 FOCAL_COUNTRY      <- "NOR"  # always included regardless of rank
 YEAR               <- 2022
 OUT_DIR            <- "data/processed"
@@ -125,7 +125,7 @@ above_threshold <- country_totals |>
   filter(cumulative_share <= COVERAGE_THRESHOLD | 
            lag(cumulative_share, default = 0) < COVERAGE_THRESHOLD)
 
-# Find the cutoff rank (first country that pushes cumulative share over 90%)
+# Find the cutoff rank (first country that pushes cumulative share over 99%)
 cutoff_rank <- country_totals |>
   filter(cumulative_share >= COVERAGE_THRESHOLD) |>
   slice(1) |>

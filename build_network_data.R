@@ -3,10 +3,10 @@
 # Project: Mapping Norway in the Global Semiconductor Value Chain
 # =============================================================================
 # Run order:
-#   1. semiconductor_bilateral_pull.R   → data/semiconductor/semiconductor_network.csv
-#   2. taiwan_data.R                    → data/processed/taiwan_full.csv
-#   3. patent_data.R                    → patents_avg (tibble in environment)
-#   4. THIS SCRIPT
+#   1. country_selection.R              → data/processed/country_selection.csv
+#   2. semiconductor_bilateral_pull.R   → data/semiconductor/semiconductor_network.csv
+#   3. taiwan_data.R                    → data/processed/taiwan_full.csv
+#   4. THIS SCRIPT  (sources patent_data.R internally after all_nodes is built)
 #
 # Outputs:
 #   data/processed/edges_frontend.csv      — Layer 1 edge list
@@ -55,20 +55,6 @@ library(igraph)
 MIN_FLOW <- 1e6   # $1M threshold: noise filter (OECD 2025; Amador & Cabral 2016)
 OUT_DIR  <- "data/processed"
 dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
-
-
-# -----------------------------------------------------------------------------
-# 0. Source patent data
-#    Provides: patents_avg (tibble with REF_AREA, patents, patents_share,
-#              patents_log)
-# -----------------------------------------------------------------------------
-
-source("patent_data.R")
-
-stopifnot(
-  "patents_avg not found — check patent_data.R ran correctly" =
-    exists("patents_avg") && nrow(patents_avg) > 0
-)
 
 
 # -----------------------------------------------------------------------------
@@ -222,6 +208,16 @@ all_nodes <- bind_rows(
   arrange(iso3)
 
 message("\nTotal unique countries in network: ", nrow(all_nodes))
+
+# Source patent data now that all_nodes is available.
+# patent_data.R reads patent_countries from this environment to match
+# the patent country set exactly to the network.
+patent_countries <- all_nodes$iso3
+source("patent_data.R")
+stopifnot(
+  "patents_avg not found — check patent_data.R ran correctly" =
+    exists("patents_avg") && nrow(patents_avg) > 0
+)
 
 # Per-layer degree centrality (simple counts — igraph will compute full
 # centrality measures in the analysis script, these are for quick inspection)
