@@ -1,49 +1,38 @@
-# =============================================================================
-# country_selection.R — Data-driven country set via 90% export coverage rule
+
+# 01_country_selection.R — Data-driven country set via 90% export coverage rule
 # Project: Mapping Norway in the Global Semiconductor Value Chain
-# =============================================================================
+
 # Strategy: pull aggregate world exports per reporter for each HS code in one
 #   pass (reporter = "all", partner = "World"). This costs 21 API calls total.
 #   Countries are then ranked by cumulative semiconductor export share and
 #   selected iteratively until the sample covers ≥90% of world trade.
-#   Norway is included by research design regardless of rank.
+#   Norway, Sweden, Finland, and Denmark is included by research design regardless of rank.
 #
 # Output:
 #   data/processed/country_selection.csv  — full ranking with cumulative shares
-#   reporters                             — character vector, ready for use in
-#                                           semiconductor_bilateral_pull.R
 #
 # Citation: OECD (2025) uses 90% coverage threshold for country set definition.
-#           Method follows Amador & Cabral (2016) trade network literature.
-# =============================================================================
+
+
 
 library(comtradr)
 library(dplyr)
 library(readr)
 library(purrr)
 
+source("config.R")
+
 set_primary_comtrade_key(Sys.getenv("COMTRADE_PRIMARY_KEY"))
 
-COVERAGE_THRESHOLD <- 0.99   # ≥90% of world semiconductor exports
-FOCAL_COUNTRY      <- "NOR"  # always included regardless of rank
-YEAR               <- 2022
-OUT_DIR            <- "data/processed"
-dir.create(OUT_DIR, recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$processed, recursive = TRUE, showWarnings = FALSE)
 
-# HS codes — full set across both layers
-all_hs <- c(
-  # Layer 1: front-end
-  "381800","848610","848620","848630","848640","848690","903082",
-  # Layer 2: back-end
-  "854110","854121","854129","854130","854160","854190",
-  "854231","854232","854233","854239","854290",
-  "852351","852352","852359"
-)
+# Use most recent year for coverage ranking
+YEAR <- max(YEARS)
 
-# -----------------------------------------------------------------------------
+
+
 # 1. Pull aggregate exports: all reporters → world, per HS code
-#    21 calls total — fast and well within free tier
-# -----------------------------------------------------------------------------
+#    21 calls total
 
 fetch_world_totals <- function(hs_code) {
   message("Fetching world totals for HS ", hs_code, " ...")
@@ -84,9 +73,9 @@ message("\nWorld total rows fetched: ", nrow(world_raw))
 message("Countries reporting: ", n_distinct(world_raw$reporter_code))
 
 
-# -----------------------------------------------------------------------------
+
 # 2. Aggregate across HS codes → total semiconductor exports per country
-# -----------------------------------------------------------------------------
+
 
 country_totals <- world_raw |>
   group_by(reporter_code, reporter) |>
@@ -115,17 +104,16 @@ country_totals |>
   print()
 
 
-# -----------------------------------------------------------------------------
-# 3. Select countries iteratively until ≥90% coverage
-#    Norway forced in regardless of rank (focal country by research design)
-# -----------------------------------------------------------------------------
+
+# 3. Select countries iteratively until ≥99% coverage
+
 
 # Countries that cross the threshold when added
 above_threshold <- country_totals |>
-  filter(cumulative_share <= COVERAGE_THRESHOLD | 
+  filter(cumulative_share <= COVERAGE_THRESHOLD |
            lag(cumulative_share, default = 0) < COVERAGE_THRESHOLD)
 
-# Find the cutoff rank (first country that pushes cumulative share over 99%)
+# Find the cutoff rank (first country that pushes cumulative share over threshold)
 cutoff_rank <- country_totals |>
   filter(cumulative_share >= COVERAGE_THRESHOLD) |>
   slice(1) |>
@@ -144,7 +132,7 @@ if (!norway_in_selection) {
           " | export share: ", scales::percent(norway_row$export_share, accuracy = 0.01))
 } else {
   message("\nNorway is within the ", COVERAGE_THRESHOLD * 100,
-          "% coverage threshold (rank ", 
+          "% coverage threshold (rank ",
           country_totals |> filter(reporter_code == FOCAL_COUNTRY) |> pull(rank), ")")
 }
 
@@ -173,9 +161,8 @@ message("Norway included:     YES (rank ",
         country_totals |> filter(reporter_code == FOCAL_COUNTRY) |> pull(rank), ")")
 
 
-# -----------------------------------------------------------------------------
 # 4. Output: reporter vector + documented selection table
-# -----------------------------------------------------------------------------
+
 
 reporters <- country_selection |>
   filter(selected) |>
@@ -189,8 +176,8 @@ write_csv(
     select(rank, reporter_code, reporter,
            total_semiconductor_exports, export_share,
            cumulative_share, selected, selection_reason),
-  file.path(OUT_DIR, "country_selection.csv")
+  file.path(DIRS$processed, "country_selection.csv")
 )
 
 message("\nSaved: country_selection.csv — use for thesis appendix table")
-message("Object `reporters` ready — pass to semiconductor_bilateral_pull.R")
+message("Next: run 02_comtrade_pull.R")
