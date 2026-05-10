@@ -137,12 +137,12 @@ if (length(missing_alliances) > 0) {
 }
 
 
-# -----------------------------------------------------------------------------
+
 # 3. UN General Assembly voting similarity — dyadic covariate
 #    Package: unvotes (Robison & Voeten 2021)
 #    Metric:  agreement rate on all UNGA votes 2019–2022
 #    Used in: ERGM as dyadic covariate for friendshoring hypothesis
-# -----------------------------------------------------------------------------
+
 
 unga_similarity <- un_votes |>
   inner_join(un_roll_calls |> select(rcid, date), by = "rcid") |>
@@ -182,9 +182,9 @@ message("Norway–China alignment: ",
         dyad_unga |> filter(iso3_i == "NOR", iso3_j == "CHN") |> pull(unga_sim) |> round(3))
 
 
-# -----------------------------------------------------------------------------
+
 # 4. Combine node-level attributes
-# -----------------------------------------------------------------------------
+
 
 node_geo <- nodes |>
   select(iso3, name, is_focal) |>
@@ -207,9 +207,9 @@ message("Norway profile:")
 node_geo |> filter(is_focal) |> glimpse()
 
 
-# -----------------------------------------------------------------------------
+
 # 5. Save
-# -----------------------------------------------------------------------------
+
 
 write_csv(node_geo,  file.path(DIRS$processed, "node_geopolitical.csv"))
 write_csv(dyad_unga, file.path(DIRS$processed, "dyad_unga_similarity.csv"))
@@ -217,3 +217,141 @@ write_csv(dyad_unga, file.path(DIRS$processed, "dyad_unga_similarity.csv"))
 message("\nSaved: node_geopolitical.csv   (", nrow(node_geo),  " countries)")
 message("Saved: dyad_unga_similarity.csv (", nrow(dyad_unga), " dyads)")
 message("Join node_geo onto node_attributes.csv in final_analysis.Rmd")
+
+# =============================================================================
+# 6. Attach geopolitical attributes to igraph objects and save UNGA matrix
+# =============================================================================
+
+library(igraph)
+
+# Load node_attributes.csv to get RCA columns (produced by 05_build_network_data.R)
+node_attrs_path <- file.path(DIRS$processed, "node_attributes.csv")
+if (!file.exists(node_attrs_path)) {
+  stop("node_attributes.csv not found. Run 05_build_network_data.R first.")
+}
+node_attrs <- read_csv(node_attrs_path, show_col_types = FALSE)
+
+graph_names <- c("frontend_2019", "frontend_2022", "backend_2019", "backend_2022")
+
+# Guard: check all graph files exist before loading
+missing_graphs <- graph_names[
+  !file.exists(file.path(DIRS$processed, paste0("graph_", graph_names, ".rds")))
+]
+if (length(missing_graphs) > 0) {
+  stop("Missing graph files: ", paste(missing_graphs, collapse = ", "),
+       "\nRun 05_build_network_data.R first.")
+}
+
+graphs <- setNames(
+  lapply(graph_names, \(nm)
+         readRDS(file.path(DIRS$processed, paste0("graph_", nm, ".rds")))),
+  graph_names
+)
+
+message("Graphs loaded: ", paste(graph_names, collapse = ", "))
+message("Vertex attributes in backend_2022: ",
+        paste(vertex_attr_names(graphs[["backend_2022"]]), collapse = ", "))
+
+
+# -----------------------------------------------------------------------------
+# 6a. Attach node-level geopolitical attributes
+#
+#     graph_from_data_frame() in 05_build_network_data.R sets vertex names
+#     from the first column of the `nodes` df (iso3 codes), storing them as
+#     V(g)$name. However, because `nodes` has a second column also named
+#     "name" (descriptive country names), igraph overwrites V(g)$name with
+#     those descriptive names. There is therefore no V(g)$iso3 attribute on
+#     the raw graphs.
+#
+#     Strategy: match via V(g)$name (descriptive) against node_geo$name,
+#     then explicitly attach iso3 as a vertex attribute so all downstream
+#     code (UNGA matrix, Rmd) can use V(g)$iso3.
+# -----------------------------------------------------------------------------
+
+attach_node_attrs <- function(g, node_geo, node_attrs) {
+  # V(g)$name = descriptive country names (e.g. "Norway") after graph build
+  v_desc      <- V(g)$name
+  geo_matched <- node_geo[match(v_desc, node_geo$name), ]
+  iso3_vec    <- geo_matched$iso3
+  att_matched <- node_attrs[match(iso3_vec, node_attrs$iso3), ]
+
+  # Attach iso3 explicitly so it is available as a vertex attribute
+  V(g)$iso3        <- iso3_vec
+  V(g)$gdp_usd     <- geo_matched$gdp_usd
+  V(g)$gdp_log     <- geo_matched$gdp_log
+  V(g)$nato        <- geo_matched$nato
+  V(g)$eu_member   <- geo_matched$eu_member
+  V(g)$chip4       <- geo_matched$chip4
+  V(g)$wassenaar   <- geo_matched$wassenaar
+  V(g)$western     <- geo_matched$western
+  V(g)$semi_bloc   <- geo_matched$semi_bloc
+  # RCA (produced by 05_build_network_data.R)
+  V(g)$rca_fe_2019 <- att_matched$rca_fe_2019
+  V(g)$rca_fe_2022 <- att_matched$rca_fe_2022
+  V(g)$rca_be_2019 <- att_matched$rca_be_2019
+  V(g)$rca_be_2022 <- att_matched$rca_be_2022
+  g
+}
+
+graphs <- lapply(graphs, attach_node_attrs, node_geo = node_geo, node_attrs = node_attrs)
+
+# Sanity check: iso3 should now be a vertex attribute with no NAs
+nor_check <- V(graphs[["backend_2022"]])$iso3
+message("Vertex attributes after attachment: ",
+        paste(vertex_attr_names(graphs[["backend_2022"]]), collapse = ", "))
+message("iso3 NAs after attach (expect 0): ", sum(is.na(nor_check)))
+message("Norway present (expect TRUE): ", "NOR" %in% nor_check)
+message("rca_be_2022 NAs (expect 0): ", sum(is.na(V(graphs[["backend_2022"]])$rca_be_2022)))
+
+# Re-save graphs with geopolitical attributes attached
+for (nm in names(graphs)) {
+  saveRDS(graphs[[nm]],
+          file.path(DIRS$processed, paste0("graph_", nm, ".rds")))
+}
+
+message("Geopolitical attributes attached and graphs re-saved")
+
+
+# -----------------------------------------------------------------------------
+# 6b. UNGA similarity matrix
+#     Square matrix indexed by iso3, padded to the full graph node set.
+#     TWN and HKG have no UNGA record (non-UN members) — their rows/cols
+#     are all NA. Document as limitation in thesis.
+# -----------------------------------------------------------------------------
+
+iso3_ordered <- sort(unique(c(dyad_unga$iso3_i, dyad_unga$iso3_j)))
+
+unga_matrix_raw <- dyad_unga |>
+  pivot_wider(
+    id_cols     = iso3_i,
+    names_from  = iso3_j,
+    values_from = unga_sim,
+    values_fill = NA_real_
+  ) |>
+  tibble::column_to_rownames("iso3_i") |>
+  as.matrix()
+
+unga_matrix_raw <- unga_matrix_raw[iso3_ordered, iso3_ordered]
+
+# Pad to full graph node set so matrix dimensions match vcount(g)
+# V(g)$iso3 now exists after attach_node_attrs
+all_iso3 <- sort(V(graphs[["backend_2022"]])$iso3)
+
+unga_matrix <- matrix(
+  NA_real_,
+  nrow = length(all_iso3),
+  ncol = length(all_iso3),
+  dimnames = list(all_iso3, all_iso3)
+)
+
+common <- intersect(all_iso3, iso3_ordered)
+unga_matrix[common, common] <- unga_matrix_raw[common, common]
+
+saveRDS(unga_matrix, file.path(DIRS$processed, "unga_similarity_matrix.rds"))
+
+message("UNGA matrix: ", nrow(unga_matrix), "x", ncol(unga_matrix),
+        " (", length(common), " countries with UNGA data)")
+message("Countries with no UNGA record (all-NA rows): ",
+        paste(setdiff(all_iso3, iso3_ordered), collapse = ", "))
+message("NAs in matrix: ", sum(is.na(unga_matrix)))
+

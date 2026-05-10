@@ -22,3 +22,4 @@ data/raw/chunks/
 # (commented out: keep processed files in repo so collaborators can run the
 #  analysis Rmd without re-running the API download scripts)
 # data/processed/
+.positai

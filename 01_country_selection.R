@@ -181,3 +181,24 @@ write_csv(
 
 message("\nSaved: country_selection.csv — use for thesis appendix table")
 message("Next: run 02_comtrade_pull.R")
+
+# 5. Pull total exports across all goods — needed for RCA denominator
+message("Pulling total exports for RCA denominator...")
+total_exports_raw <- ct_get_data(
+  reporter       = reporters,
+  partner        = "all_countries",
+  commodity_code = "TOTAL",
+  start_date     = 2019,
+  end_date       = 2022,
+  flow_direction = "export"
+) |>
+  select(
+    reporter_code   = reporter_iso,
+    total_exports   = primary_value,
+    year            = ref_year
+  ) |>
+  filter(!is.na(total_exports), total_exports > 0)
+
+write_csv(total_exports_raw,
+          file.path(DIRS$processed, "total_exports.csv"))
+message("Saved: total_exports.csv")
