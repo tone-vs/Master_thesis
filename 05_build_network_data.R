@@ -34,8 +34,9 @@
 #                       HS: 854110-854290, 852351-852359
 #
 # Taiwan note:
-#   Taiwan does not report to UN Comtrade. Flows sourced from OECD BTIGE
-#   (CPA C261 + C265). Assigned to layer2_backend — documented limitation.
+#   Taiwan does not report to UN Comtrade. Backend flows from OECD BTIGE
+#   (CPA C261+C265, both years). Frontend flows from Taiwan ITA customs
+#   portal (2022 only) — 2019 frontend absence documented as limitation.
 
 
 library(dplyr)
@@ -66,8 +67,8 @@ message("Comtrade layers: ", paste(unique(comtrade_raw$layer), collapse = ", "))
 
 
 
-# 2. Load Taiwan BTIGE data
-#    Produced by 03_taiwan_data.R — contains all years defined in YEARS.
+# 2. Load Taiwan data
+#    Produced by 03_taiwan_data.R — BTIGE (backend, both years) + ITA (frontend, 2022).
 
 
 taiwan_path <- file.path(DIRS$processed, "taiwan_full.csv")
@@ -77,14 +78,12 @@ if (!file.exists(taiwan_path)) {
 }
 
 taiwan_raw <- read_csv(taiwan_path, show_col_types = FALSE)
-message("Taiwan BTIGE rows loaded: ", nrow(taiwan_raw))
+message("Taiwan rows loaded: ", nrow(taiwan_raw))
 message("Taiwan years: ", paste(sort(unique(taiwan_raw$year)), collapse = ", "))
 
 taiwan_harmonised <- taiwan_raw |>
-  mutate(
-    layer  = "layer2_backend",   # see header note
-    source = "OECD_BTIGE"
-  )
+  mutate(source = if_else(is.na(source), "OECD_BTIGE", source))
+# layer is already set correctly in 03_taiwan_data.R — do not override
 
 
 
@@ -184,7 +183,70 @@ all_nodes <- bind_rows(lapply(year_results, \(r) bind_rows(
 
 message("\nTotal unique countries across all years: ", nrow(all_nodes))
 
+# -----------------------------------------------------------------------------
+# 6b. Revealed Comparative Advantage (RCA)
+#     Formula: RCA_i = (X_semi_i / X_total_i) / (X_semi_world / X_total_world)
+#     Source: OECD (2025) Box 1; Balassa (1965)
+#     RCA > 1 = comparative advantage in this segment.
+#     Denominator: total exports across all goods from Comtrade (commodity = TOTAL)
+#     produced by 01_country_selection.R
+# -----------------------------------------------------------------------------
 
+total_exports_path <- file.path(DIRS$processed, "total_exports.csv")
+if (!file.exists(total_exports_path)) {
+  stop("total_exports.csv not found. Run 01_country_selection.R first.")
+}
+total_exports <- read_csv(total_exports_path, show_col_types = FALSE)
+
+compute_rca <- function(edges_raw, total_exports, layer_name, yr) {
+  
+  # Semiconductor exports in this layer for this year
+  segment_exports <- edges_raw |>
+    filter(layer == layer_name, year == yr) |>
+    group_by(reporter_code) |>
+    summarise(segment_exports = sum(trade_value_usd, na.rm = TRUE),
+              .groups = "drop")
+  
+  # Total exports across all goods for this year
+  total_by_country <- total_exports |>
+    filter(year == yr) |>
+    group_by(reporter_code) |>
+    summarise(total_exports = sum(total_exports, na.rm = TRUE),
+              .groups = "drop")
+  
+  world_segment <- sum(segment_exports$segment_exports)
+  world_total   <- sum(total_by_country$total_exports)
+  
+  segment_exports |>
+    left_join(total_by_country, by = "reporter_code") |>
+    mutate(
+      rca     = (segment_exports / total_exports) / (world_segment / world_total),
+      has_rca = rca > 1,
+      layer   = layer_name,
+      year    = yr
+    ) |>
+    rename(iso3 = reporter_code)
+}
+
+rca_all <- bind_rows(
+  compute_rca(edges_raw, total_exports, "layer1_frontend", 2019),
+  compute_rca(edges_raw, total_exports, "layer1_frontend", 2022),
+  compute_rca(edges_raw, total_exports, "layer2_backend",  2019),
+  compute_rca(edges_raw, total_exports, "layer2_backend",  2022)
+)
+
+rca_wide <- rca_all |>
+  mutate(col = paste0("rca_",
+                      if_else(layer == "layer1_frontend", "fe", "be"),
+                      "_", year)) |>
+  select(iso3, col, rca) |>
+  pivot_wider(names_from = col, values_from = rca)
+
+message("\nNorway RCA:")
+rca_all |>
+  filter(iso3 == "NOR") |>
+  select(layer, year, rca, has_rca) |>
+  print()
 
 # 7. Load patent data
 #    Produced by 04_patent_data.R — read from disk (no sourcing).
@@ -230,17 +292,18 @@ degree_attrs <- Reduce(
 
 nodes <- all_nodes |>
   left_join(degree_attrs, by = "iso3") |>
+  left_join(rca_wide,     by = "iso3") |>        
   left_join(
     patents_avg |> select(REF_AREA, patents, patents_share, patents_log),
     by = c("iso3" = "REF_AREA")
   ) |>
   mutate(
     across(starts_with("out_deg") | starts_with("in_deg"), \(x) replace_na(x, 0)),
+    across(starts_with("rca_"),    \(x) replace_na(x, 0)), # <- add this
     patents     = replace_na(patents, 0),
     patents_log = replace_na(patents_log, 0),
     is_focal    = iso3 == FOCAL_COUNTRY
   )
-
 
 
 # 9. Norway diagnostic (per year)
