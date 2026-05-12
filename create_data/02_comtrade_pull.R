@@ -3,7 +3,7 @@
 # Reporter selection — two criteria, applied jointly:
 #
 #   1. Coverage threshold (data-driven):
-#      Countries are ranked by total semiconductor exports across all 21 HS
+#      Countries are ranked by total semiconductor exports across all 22 HS
 #      codes and added iteratively in descending order until
 #      the sample accounts for ≥99% of world semiconductor trade, following
 #      OECD (2025). The threshold country set is loaded from:

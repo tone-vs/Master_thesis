@@ -129,12 +129,6 @@ alliance_df <- tribble(
   "THA",     0L,         0L,     0L,         0L
 )
 
-missing_alliances <- setdiff(iso3_set, alliance_df$iso3)
-if (length(missing_alliances) > 0) {
-  message("Countries in network missing from alliance_df: ",
-          paste(missing_alliances, collapse = ", "))
-}
-
 
 
 # 3. UN General Assembly voting similarity — dyadic covariate
@@ -192,9 +186,7 @@ node_geo <- nodes |>
     nato       = replace_na(nato,       0L),
     eu_member  = replace_na(eu_member,  0L),
     chip4      = replace_na(chip4,      0L),
-    wassenaar  = replace_na(wassenaar,  0L),
-    western    = as.integer(nato == 1 | eu_member == 1),
-    semi_bloc  = as.integer(chip4 == 1 | wassenaar == 1)
+    wassenaar  = replace_na(wassenaar,  0L)
   )
 
 message("\nNode geo coverage: ", nrow(node_geo), " countries")
@@ -258,8 +250,6 @@ attach_node_attrs <- function(g, node_geo, node_attrs) {
   V(g)$eu_member   <- geo_matched$eu_member
   V(g)$chip4       <- geo_matched$chip4
   V(g)$wassenaar   <- geo_matched$wassenaar
-  V(g)$western     <- geo_matched$western
-  V(g)$semi_bloc   <- geo_matched$semi_bloc
   V(g)$rca_fe_2019 <- att_matched$rca_fe_2019
   V(g)$rca_fe_2022 <- att_matched$rca_fe_2022
   V(g)$rca_be_2019 <- att_matched$rca_be_2019

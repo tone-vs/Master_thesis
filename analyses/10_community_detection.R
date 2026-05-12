@@ -21,11 +21,12 @@
 #
 # Run from project root: Rscript analyses/10_community_detection.R
 
-library(igraph)   # loaded for class dispatch; all calls use igraph:: prefix
+library(igraph)       # loaded for class dispatch; all calls use igraph:: prefix
 library(dplyr)
 library(tidyr)
 library(knitr)
 library(kableExtra)
+library(countrycode)  # needed for vertex-name normalisation fallback
 
 source("config.R")
 
@@ -52,6 +53,43 @@ g_be_19 <- readRDS(graph_files["be_2019"])
 g_be_22 <- readRDS(graph_files["be_2022"])
 
 message("Graphs loaded.")
+
+# ── Vertex-name normalisation ─────────────────────────────────────────────────
+#
+# Graphs built by the old pipeline store full country names ("Norway", "China")
+# as V(g)$name instead of ISO3 codes. This helper converts them in-place so
+# all membership lookups using FOCAL_COUNTRY ("NOR") work correctly.
+
+normalise_vertex_names <- function(g) {
+  raw <- igraph::V(g)$name
+  if (all(nchar(raw) <= 3)) return(g)   # already ISO3 — nothing to do
+  message("  [normalise] Converting full country names to ISO3 codes ...")
+  converted <- countrycode::countrycode(
+    raw,
+    origin      = "country.name",
+    destination = "iso3c",
+    custom_match = c(
+      "CHINESE TAIPEI"       = "TWN",
+      "CHINA, HONG KONG SAR" = "HKG",
+      "REP. OF KOREA"        = "KOR",
+      "VIET NAM"             = "VNM",
+      "CZECHIA"              = "CZE"
+    )
+  )
+  failed <- raw[is.na(converted)]
+  if (length(failed) > 0)
+    warning("normalise_vertex_names(): could not convert: ",
+            paste(failed, collapse = ", "))
+  igraph::V(g)$name <- ifelse(is.na(converted), raw, converted)
+  g
+}
+
+g_fe_19 <- normalise_vertex_names(g_fe_19)
+g_fe_22 <- normalise_vertex_names(g_fe_22)
+g_be_19 <- normalise_vertex_names(g_be_19)
+g_be_22 <- normalise_vertex_names(g_be_22)
+
+message("Vertex names normalised.")
 
 # ── Symmetrise directed → undirected ─────────────────────────────────────────
 #
@@ -130,35 +168,66 @@ write_tex <- function(tbl, path, caption, label) {
   message("Saved: ", path)
 }
 
-# ── TABLE 1 — High-level community summary ────────────────────────────────────
-comm_summary <- tibble(
-  Layer          = c("Frontend (L1)", "Frontend (L1)", "Backend (L2)", "Backend (L2)"),
-  Year           = c(2019, 2022, 2019, 2022),
-  `N communities`= c(
-    length(comm_fe_19), length(comm_fe_22),
-    length(comm_be_19), length(comm_be_22)
-  ),
+# ── TABLE 1 — High-level community summary (2022 primary; 2019 robustness) ────
+#
+# The primary LaTeX table reports 2022 only. A separate robustness table
+# covering 2019 is written to the same directory for appendix use.
+# The full communities list (including 2019) is saved to communities.rds
+# so that plots/14_network_viz.R can render the 2019 robustness figures.
+
+comm_summary_2022 <- tibble(
+  Layer          = c("Frontend (L1)", "Backend (L2)"),
+  Year           = c(2022, 2022),
+  `N communities`= c(length(comm_fe_22), length(comm_be_22)),
   Modularity     = round(c(
-    igraph::modularity(comm_fe_19), igraph::modularity(comm_fe_22),
-    igraph::modularity(comm_be_19), igraph::modularity(comm_be_22)
+    igraph::modularity(comm_fe_22),
+    igraph::modularity(comm_be_22)
   ), 3),
   `Largest comm` = c(
-    max(igraph::sizes(comm_fe_19)), max(igraph::sizes(comm_fe_22)),
-    max(igraph::sizes(comm_be_19)), max(igraph::sizes(comm_be_22))
+    max(igraph::sizes(comm_fe_22)),
+    max(igraph::sizes(comm_be_22))
   )
 )
+
+# Robustness: 2019 summary (for appendix)
+comm_summary_2019 <- tibble(
+  Layer          = c("Frontend (L1)", "Backend (L2)"),
+  Year           = c(2019, 2019),
+  `N communities`= c(length(comm_fe_19), length(comm_be_19)),
+  Modularity     = round(c(
+    igraph::modularity(comm_fe_19),
+    igraph::modularity(comm_be_19)
+  ), 3),
+  `Largest comm` = c(
+    max(igraph::sizes(comm_fe_19)),
+    max(igraph::sizes(comm_be_19))
+  )
+)
+
+comm_summary <- comm_summary_2022  # alias used in console print below
 
 message("\nCommunity summary:")
 print(comm_summary)
 
 write_tex(
-  comm_summary,
+  comm_summary_2022,
   path    = "analyses/output/table_community_summary.tex",
   caption = paste0(
-    "Louvain community detection results by layer and year. ",
-    "Weights = bilateral market share. Seed = 42."
+    "Louvain community detection results by layer (2022). ",
+    "Weights = bilateral market share. Seed = 42. ",
+    "2019 results (robustness check) in Table~\\ref{tab:community-summary-robustness}."
   ),
   label   = "tab:community-summary"
+)
+
+write_tex(
+  comm_summary_2019,
+  path    = "analyses/output/table_community_summary_robustness.tex",
+  caption = paste0(
+    "Louvain community detection results by layer (2019, robustness check). ",
+    "Weights = bilateral market share. Seed = 42."
+  ),
+  label   = "tab:community-summary-robustness"
 )
 
 # ── TABLE 2 — Norway's community membership ───────────────────────────────────
@@ -171,24 +240,39 @@ norway_comm_members <- function(comm, g) {
   paste(sort(members), collapse = ", ")
 }
 
+# Primary table: 2022 only
 norway_community <- tibble(
-  Layer              = c("Frontend (L1)", "Frontend (L1)", "Backend (L2)", "Backend (L2)"),
-  Year               = c(2019, 2022, 2019, 2022),
+  Layer              = c("Frontend (L1)", "Backend (L2)"),
+  Year               = c(2022, 2022),
   `Norway community` = c(
-    norway_comm_id(comm_fe_19, g_fe_19), norway_comm_id(comm_fe_22, g_fe_22),
-    norway_comm_id(comm_be_19, g_be_19), norway_comm_id(comm_be_22, g_be_22)
+    norway_comm_id(comm_fe_22, g_fe_22),
+    norway_comm_id(comm_be_22, g_be_22)
   ),
   `Community size`   = c(
-    sum(igraph::membership(comm_fe_19) == norway_comm_id(comm_fe_19, g_fe_19)),
     sum(igraph::membership(comm_fe_22) == norway_comm_id(comm_fe_22, g_fe_22)),
-    sum(igraph::membership(comm_be_19) == norway_comm_id(comm_be_19, g_be_19)),
     sum(igraph::membership(comm_be_22) == norway_comm_id(comm_be_22, g_be_22))
   ),
   `Community members` = c(
-    norway_comm_members(comm_fe_19, g_fe_19),
     norway_comm_members(comm_fe_22, g_fe_22),
-    norway_comm_members(comm_be_19, g_be_19),
     norway_comm_members(comm_be_22, g_be_22)
+  )
+)
+
+# Robustness table: 2019
+norway_community_2019 <- tibble(
+  Layer              = c("Frontend (L1)", "Backend (L2)"),
+  Year               = c(2019, 2019),
+  `Norway community` = c(
+    norway_comm_id(comm_fe_19, g_fe_19),
+    norway_comm_id(comm_be_19, g_be_19)
+  ),
+  `Community size`   = c(
+    sum(igraph::membership(comm_fe_19) == norway_comm_id(comm_fe_19, g_fe_19)),
+    sum(igraph::membership(comm_be_19) == norway_comm_id(comm_be_19, g_be_19))
+  ),
+  `Community members` = c(
+    norway_comm_members(comm_fe_19, g_fe_19),
+    norway_comm_members(comm_be_19, g_be_19)
   )
 )
 
@@ -198,8 +282,18 @@ print(norway_community)
 write_tex(
   norway_community,
   path    = "analyses/output/table_community_norway.tex",
-  caption = "Norway's Louvain community membership by layer and year.",
+  caption = paste0(
+    "Norway's Louvain community membership by layer (2022). ",
+    "2019 robustness results in Table~\\ref{tab:community-norway-robustness}."
+  ),
   label   = "tab:community-norway"
+)
+
+write_tex(
+  norway_community_2019,
+  path    = "analyses/output/table_community_norway_robustness.tex",
+  caption = "Norway's Louvain community membership by layer (2019, robustness check).",
+  label   = "tab:community-norway-robustness"
 )
 
 # ── TABLE 3 — Full community structure (2022 only) ────────────────────────────

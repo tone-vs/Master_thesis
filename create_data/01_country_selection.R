@@ -124,6 +124,9 @@ selected <- country_totals |>
   filter(rank <= cutoff_rank)
 
 # Force Norway in if not already selected
+# SWE, FIN, DNK are Nordic comparators forced in at script 02
+# via FORCED_INCLUSIONS — they are within the 99% threshold
+# so this distinction has no effect on the final country set.
 norway_in_selection <- FOCAL_COUNTRY %in% selected$reporter_code
 if (!norway_in_selection) {
   norway_row <- country_totals |> filter(reporter_code == FOCAL_COUNTRY)

@@ -57,8 +57,8 @@ $(S06): $(S05)
 	@touch $@
 
 ## ── analyses/ pipeline ────────────────────────────────────────────────────────
-## 07-11 can run immediately after 06; 09 also produces core-periphery tables;
-## 12 (ERGM) requires 09's centrality_all.rds (includes coreness column).
+## 07-11 can run immediately after 06; 09 also produces core-periphery tables.
+## 12 (ERGM) is 2022-only — 2019 is robustness/descriptive only (07, 08, 14).
 
 analyses: $(S12)
 

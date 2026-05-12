@@ -9,20 +9,26 @@
 # script. All igraph functions are called with the igraph:: prefix so they
 # continue to work correctly even after statnet masks the unqualified names.
 #
+# Scope:
+#   2022 is the primary analysis year.
+#   BE 2019 is included solely for the temporal comparison (pre-disruption
+#   baseline). FE 2019 is excluded: Taiwan is absent from the front-end 2019
+#   network due to OECD BTIGE coverage limitations (Taiwan ITA data covers
+#   2022 only), making a cross-year front-end ERGM comparison unreliable.
+#
 # Model structure:
 #   BE 2022 M1: edges + mutual                         (structural baseline)
-#   BE 2022 M2: + nodecov(rca) + nodecov(gdp)          (full — no M2 intermediate;
+#   BE 2022 M2: + nodecov(rca) + nodecov(gdp)          (full — no intermediate;
 #               + nodecov(patents) + edgecov(unga)       ~88% density precludes it)
 #   FE 2022 M1: edges + mutual
 #   FE 2022 M2: edges + mutual + nodecov(rca) + nodecov(gdp)
 #               + nodecov(patents) + edgecov(unga)
-#   BE 2019 M2: same spec as BE 2022 M2 (temporal comparison)
+#   BE 2019 M2: same spec as BE 2022 M2   (temporal comparison only)
 #
 # Inputs:
-#   data/processed/graph_frontend_2019.rds
 #   data/processed/graph_frontend_2022.rds
-#   data/processed/graph_backend_2019.rds
 #   data/processed/graph_backend_2022.rds
+#   data/processed/graph_backend_2019.rds
 #   data/processed/node_geopolitical.rds
 #   data/processed/dyad_unga_similarity.rds
 #   data/processed/unga_similarity_matrix.rds
@@ -42,10 +48,11 @@
 library(igraph)   # load first; calls below use igraph:: so masking is safe
 
 graph_files <- c(
-  fe_2019 = file.path("data/processed", "graph_frontend_2019.rds"),
   fe_2022 = file.path("data/processed", "graph_frontend_2022.rds"),
-  be_2019 = file.path("data/processed", "graph_backend_2019.rds"),
-  be_2022 = file.path("data/processed", "graph_backend_2022.rds")
+  be_2022 = file.path("data/processed", "graph_backend_2022.rds"),
+  be_2019 = file.path("data/processed", "graph_backend_2019.rds")
+  # fe_2019 intentionally excluded: Taiwan absent from front-end 2019 network
+  # (OECD BTIGE coverage gap) — cross-year FE comparison would be unreliable.
 )
 
 missing <- graph_files[!file.exists(graph_files)]
@@ -63,10 +70,9 @@ for (p in c(geo_path, unga_d_path, unga_m_path)) {
 }
 
 # Load igraph objects
-g_fe_19 <- readRDS(graph_files["fe_2019"])
 g_fe_22 <- readRDS(graph_files["fe_2022"])
-g_be_19 <- readRDS(graph_files["be_2019"])
 g_be_22 <- readRDS(graph_files["be_2022"])
+g_be_19 <- readRDS(graph_files["be_2019"])   # temporal comparison only
 
 # Load geopolitical attributes and UNGA data
 node_geo  <- readRDS(geo_path)
@@ -83,6 +89,7 @@ library(ergm)
 library(dplyr)
 library(readr)
 library(stargazer)
+library(countrycode)  # needed for vertex-name normalisation fallback
 
 source("config.R")
 dir.create("analyses/output", recursive = TRUE, showWarnings = FALSE)
@@ -100,7 +107,27 @@ dir.create("analyses/output", recursive = TRUE, showWarnings = FALSE)
 
 igraph_to_network <- function(g, node_geo, dyad_unga, layer_label, yr) {
 
-  node_order <- igraph::V(g)$name   # ISO3 codes
+  # node_order must be ISO3 codes for all node_geo and dyad_unga joins.
+  # Graphs from the old pipeline use full country names — convert if needed.
+  node_order <- igraph::V(g)$name
+  if (any(nchar(node_order) > 3)) {
+    message("  [igraph_to_network] Converting vertex names to ISO3 ...")
+    node_order <- countrycode::countrycode(
+      node_order,
+      origin      = "country.name",
+      destination = "iso3c",
+      custom_match = c(
+        "CHINESE TAIPEI"       = "TWN",
+        "CHINA, HONG KONG SAR" = "HKG",
+        "REP. OF KOREA"        = "KOR",
+        "VIET NAM"             = "VNM",
+        "CZECHIA"              = "CZE"
+      )
+    )
+    n_fail <- sum(is.na(node_order))
+    if (n_fail > 0)
+      warning("igraph_to_network(): ", n_fail, " vertex name(s) could not be converted.")
+  }
 
   # Adjacency matrix from binary edge weights
   adj <- igraph::as_adjacency_matrix(
@@ -147,7 +174,7 @@ igraph_to_network <- function(g, node_geo, dyad_unga, layer_label, yr) {
 }
 
 # =============================================================================
-# 4. Prepare network objects for all four layer × year combinations
+# 4. Prepare network objects
 # =============================================================================
 
 message("Converting igraph objects to network objects ...")
@@ -155,7 +182,6 @@ message("Converting igraph objects to network objects ...")
 prep_be_22 <- igraph_to_network(g_be_22, node_geo, dyad_unga, "Backend",  2022)
 prep_fe_22 <- igraph_to_network(g_fe_22, node_geo, dyad_unga, "Frontend", 2022)
 prep_be_19 <- igraph_to_network(g_be_19, node_geo, dyad_unga, "Backend",  2019)
-prep_fe_19 <- igraph_to_network(g_fe_19, node_geo, dyad_unga, "Frontend", 2019)
 
 message("Network objects ready.")
 
@@ -163,8 +189,7 @@ message("Network objects ready.")
 for (item in list(
   list("BE 2022", prep_be_22$net),
   list("FE 2022", prep_fe_22$net),
-  list("BE 2019", prep_be_19$net),
-  list("FE 2019", prep_fe_19$net)
+  list("BE 2019", prep_be_19$net)
 )) {
   message(sprintf("%s density: %.3f", item[[1]], network::network.density(item[[2]])))
 }
@@ -184,13 +209,16 @@ ergm_ctrl <- ergm::control.ergm(
 # =============================================================================
 # 6. Fit ERGM models
 #
-#  BE 2022: two models only — M1 structural, M2 full.
+#  BE 2022: two models — M1 structural baseline, M2 full.
 #  No intermediate M2 is reported: at ~88% density single nodecov terms
 #  produce non-varying MCMC statistics (see thesis Section 4.3).
 #
-#  FE 2022: M1 structural + M2 full (same spec as BE for layer comparison).
+#  FE 2022: M1 structural + M2 full (same spec as BE for cross-layer comparison).
 #
-#  BE 2019: M2 full (same spec as BE 2022 M2 for temporal comparison).
+#  BE 2019: M2 full only (temporal comparison with BE 2022 M2).
+#  FE 2019 is not modelled: Taiwan is absent from the front-end 2019 network
+#  due to OECD BTIGE coverage limitations, making cross-year FE comparison
+#  unreliable.
 # =============================================================================
 
 message("\n=== Fitting BE 2022 M1 (structural baseline) ===")
@@ -225,7 +253,7 @@ ergm_fe22_m2 <- ergm::ergm(
   control = ergm_ctrl
 )
 
-message("\n=== Fitting BE 2019 M2 (temporal comparison) ===")
+message("\n=== Fitting BE 2019 M2 (temporal comparison baseline) ===")
 ergm_be19_m2 <- ergm::ergm(
   prep_be_19$net ~ edges + mutual +
     nodecov("rca_log") +
@@ -335,7 +363,7 @@ stargazer::stargazer(
   ergm_be19_m2, ergm_be22_m2,
   type          = "latex",
   title         = "Back-end ERGM: Temporal Comparison (2019 vs.\\ 2022)",
-  column.labels = c("2019 (pre-COVID)", "2022 (post-CHIPS Act)"),
+  column.labels = c("2019 (pre-disruption)", "2022 (post-CHIPS Act)"),
   dep.var.caption        = "P(trade tie = 1) — Back-end layer",
   dep.var.labels.include = FALSE,
   covariate.labels = c(
@@ -349,9 +377,11 @@ stargazer::stargazer(
   keep.stat    = c("aic", "bic", "n"),
   ci           = FALSE,
   star.cutoffs = c(0.05, 0.01, 0.001),
-  notes        = paste(
+  notes = paste(
     "Identical specification across years enables direct coefficient comparison.",
     "AIC/BIC not comparable across columns (different data).",
+    "Front-end temporal comparison omitted: Taiwan absent from 2019 front-end",
+    "network due to OECD BTIGE coverage limitations.",
     "GWESP omitted following Ou et al.\\ (2024)."
   ),
   header = FALSE
@@ -359,4 +389,4 @@ stargazer::stargazer(
 sink()
 message("Saved: analyses/output/table_ergm_temporal.tex")
 
-message("\n12_ergm.R complete — all ERGM tables written to analyses/output/")
+message("\n12_ergm.R complete — 3 ERGM tables written to analyses/output/")

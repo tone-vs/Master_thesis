@@ -100,6 +100,32 @@ g_be_22 <- add_dist_weight(g_be_22)
 
 make_cent <- function(g, layer_label, yr) {
 
+  # ── Name normalisation ──────────────────────────────────────────────────────
+  # Graphs built by the old pipeline store full country names ("Norway",
+  # "China") as vertex names instead of ISO3 codes. Detect and convert here
+  # so all downstream tibble columns use ISO3 regardless of graph provenance.
+  raw_names <- igraph::V(g)$name
+  if (any(nchar(raw_names) > 3)) {
+    message("  [make_cent] Vertex names appear to be full country names; ",
+            "converting to ISO3 via countrycode().")
+    raw_names <- countrycode::countrycode(
+      raw_names,
+      origin      = "country.name",
+      destination = "iso3c",
+      custom_match = c(
+        "CHINESE TAIPEI"       = "TWN",
+        "CHINA, HONG KONG SAR" = "HKG",
+        "REP. OF KOREA"        = "KOR",
+        "VIET NAM"             = "VNM",
+        "CZECHIA"              = "CZE"
+      )
+    )
+    n_fail <- sum(is.na(raw_names))
+    if (n_fail > 0)
+      warning("  make_cent(): ", n_fail, " vertex name(s) could not be converted to ISO3 ",
+              "and will appear as NA.")
+  }
+
   # Symmetrise for coreness (k-core is defined on undirected graphs)
   g_ud  <- igraph::as.undirected(
     g,
@@ -109,7 +135,7 @@ make_cent <- function(g, layer_label, yr) {
   cores <- igraph::coreness(g_ud)                # named integer vector
 
   tibble(
-    iso3         = igraph::V(g)$name,
+    iso3         = raw_names,   # normalised ISO3 codes
     degree_in    = igraph::degree(g, mode = "in"),
     degree_out   = igraph::degree(g, mode = "out"),
     strength_in  = igraph::strength(g, mode = "in",
@@ -127,7 +153,7 @@ make_cent <- function(g, layer_label, yr) {
       directed = TRUE,
       weights  = igraph::E(g)$weight_marketshare
     )$vector,
-    coreness     = as.integer(cores[igraph::V(g)$name])
+    coreness     = as.integer(cores[igraph::V(g)$name])  # indexed by original names; safe
   ) |>
     mutate(
       country      = countrycode::countrycode(

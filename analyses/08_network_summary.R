@@ -52,14 +52,26 @@ message("Graphs loaded.")
 # ── Helper: compute summary stats for one graph ───────────────────────────────
 #
 #  All igraph functions called with igraph:: prefix.
-#  transitivity() computes the global clustering coefficient (ratio of closed
-#  triangles to connected triples); works on directed graphs by default.
+#
+#  Two clustering coefficients are reported:
+#    Global CC  — igraph::transitivity(type = "global"): ratio of closed
+#                 triangles to all connected triples (network-level).
+#    Avg CC     — igraph::transitivity(type = "average"): mean of per-node
+#                 local clustering coefficients (typical node-level tendency).
+#                 Computed on the symmetrised graph; nodes with degree < 2
+#                 (undefined local CC) are excluded by igraph automatically.
+#  Both treat the graph as undirected for triangle counting, which is standard
+#  practice for directed trade networks.
 
 network_stats <- function(g, layer_label, yr) {
 
   # Weighted distance for avg path length (inverted market-share weights)
   # Edge weight for shortest paths: strong trade = short distance
   igraph::E(g)$path_weight <- 1 / (igraph::E(g)$weight_marketshare + 1e-9)
+
+  # Symmetrise once for both clustering coefficients
+  g_ud <- igraph::as_undirected(g, mode = "collapse",
+                                 edge.attr.comb = list(weight_marketshare = "sum", "ignore"))
 
   tibble(
     Layer             = layer_label,
@@ -70,7 +82,8 @@ network_stats <- function(g, layer_label, yr) {
     Reciprocity       = round(igraph::reciprocity(g), 3),
     `Avg out-degree`  = round(mean(igraph::degree(g, mode = "out")), 1),
     `Avg in-degree`   = round(mean(igraph::degree(g, mode = "in")), 1),
-    `Transitivity`    = round(igraph::transitivity(g, type = "global"), 3),
+    `Global CC`       = round(igraph::transitivity(g_ud, type = "global"),  3),
+    `Avg CC`          = round(igraph::transitivity(g_ud, type = "average"), 3),
     # Weighted average path length — directed, using inverted weights
     # NaN if graph is not strongly connected (expected for sparse networks)
     `Avg path length` = round(
@@ -105,9 +118,11 @@ tex <- knitr::kable(
   booktabs = TRUE,
   caption  = paste0(
     "Network summary statistics by layer and year. ",
-    "Flows $\\geq$ \\$", MIN_FLOW / 1e6,
-    "M. Transitivity = global clustering coefficient. ",
-    "Path length computed on inverted market-share weights."
+    "Flows $\\geq$ \\$", MIN_FLOW / 1e6, "M. ",
+    "\\textit{Global CC} = ratio of closed triangles to connected triples. ",
+    "\\textit{Avg CC} = mean of per-node local clustering coefficients; ",
+    "both computed on the symmetrised graph. ",
+    "Path length computed on inverted market-share weights (strong trade $=$ short distance)."
   ),
   label    = "tab:network-summary",
   linesep  = ""

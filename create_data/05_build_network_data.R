@@ -74,7 +74,7 @@ message("Taiwan years: ", paste(sort(unique(taiwan_raw$year)), collapse = ", "))
 
 taiwan_harmonised <- taiwan_raw |>
   mutate(source = if_else(is.na(source), "OECD_BTIGE", source))
-# layer is already set correctly in 03_taiwan_data.R — do not override
+
 
 
 
@@ -91,7 +91,7 @@ edges_raw <- bind_rows(
     reporter_code   != partner_code    # drop self-loops
   )
 
-# YEARS derived from the data — serves as a data integrity check
+# YEARS derived from the data, serves as a data integrity check
 YEARS <- sort(unique(edges_raw$year))
 message("\nYears detected in combined data: ", paste(YEARS, collapse = ", "))
 message("Combined rows after threshold filter: ", nrow(edges_raw))
@@ -324,6 +324,18 @@ nodes |> filter(is_focal) |> glimpse()
 
 
 build_graph <- function(edge_df, node_df, layer_label, yr) {
+
+  # igraph::graph_from_data_frame() normally uses the FIRST column of the
+  # vertices data frame as vertex names. However, if ANY column is literally
+  # called "name", igraph treats that column as V(g)$name regardless of
+  # position — which causes full country names to override ISO3 codes.
+  # Fix: rename "name" → "country_name" before passing to graph_from_data_frame(),
+  # then put iso3 first so it is unambiguously used as the vertex name.
+  if ("name" %in% names(node_df)) {
+    node_df <- dplyr::rename(node_df, country_name = name)
+  }
+  node_df <- node_df |> dplyr::select(iso3, dplyr::everything())
+
   g <- graph_from_data_frame(
     d = edge_df |>
       select(from, to, trade_value_usd, weight_binary,
@@ -331,8 +343,19 @@ build_graph <- function(edge_df, node_df, layer_label, yr) {
     directed = TRUE,
     vertices = node_df
   )
-  g$layer <- layer_label
-  g$year  <- yr
+
+  # Sanity-check for ISO-codes: vertex names must be ISO3 codes 
+  long_names <- igraph::V(g)$name[nchar(igraph::V(g)$name) > 3]
+  if (length(long_names) > 0) {
+    warning(
+      "build_graph(): ", length(long_names), " vertex name(s) are longer than 3 chars ",
+      "(expected ISO3 codes). First offenders: ",
+      paste(head(long_names, 5), collapse = ", ")
+    )
+  }
+
+  g$layer   <- layer_label
+  g$year    <- yr
   g$n_nodes <- vcount(g)
   g$n_edges <- ecount(g)
   message(sprintf("%d %s: %d nodes, %d edges", yr, layer_label, vcount(g), ecount(g)))
