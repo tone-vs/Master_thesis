@@ -1,8 +1,8 @@
-# analyses/09_centrality.R — Centrality and Core-Periphery Analysis
+# analyses/09_centrality.R — Centrality Analysis
 #
-# Computes four centrality measures plus k-core decomposition for all nodes
-# in all four layer × year graphs. Saves the combined data frame as an RDS
-# (for downstream scripts) and LaTeX tables for the thesis.
+# Computes four centrality measures for all nodes in all four layer × year
+# graphs. Saves the combined data frame as an RDS (for downstream scripts)
+# and LaTeX tables for the thesis.
 #
 # Measures:
 #   degree_in / degree_out  — in- and out-degree (unweighted)
@@ -10,14 +10,6 @@
 #   betweenness             — weighted betweenness (normalised); weights
 #                             inverted so strong trade = short distance
 #   eigenvector             — eigenvector centrality (directed, weighted)
-#   coreness                — k-core shell index (igraph::coreness())
-#
-# Core-periphery approach:
-#   igraph::coreness() performs k-core decomposition on the symmetrised graph
-#   (directed → undirected, edge weights summed). The maximum coreness shell
-#   defines the "core"; all other nodes are "periphery". Norway's shell index,
-#   its rank relative to all network members, and whether it is classified as
-#   core are reported.
 #
 # igraph functions use the full igraph:: namespace throughout. Never call
 # bare degree(), strength(), betweenness(), or eigen_centrality() — these
@@ -30,16 +22,12 @@
 #   data/processed/graph_backend_2022.rds
 #
 # Outputs:
-#   data/processed/centrality_all.rds                                        — full centrality data frame
-#                                                                               (includes coreness column)
-#   thesis_project/analyses/output/table_centrality_fe22.tex                 — frontend 2022 rankings (longtable)
-#   thesis_project/analyses/output/table_centrality_be22.tex                 — backend 2022 rankings (longtable)
-#   thesis_project/analyses/output/table_centrality_full.tex                 — both layers combined, 2022 (longtable)
-#   thesis_project/analyses/output/table_centrality_norway.tex               — Norway centrality, 2022 (primary)
-#   thesis_project/analyses/output/table_centrality_norway_appendix.tex      — Norway centrality, 2019 (robustness)
-#   thesis_project/analyses/output/table_core_periphery_norway.tex           — Norway k-core position, 2022 (primary)
-#   thesis_project/analyses/output/table_core_periphery_norway_appendix.tex  — Norway k-core position, 2019 (robustness)
-#   thesis_project/analyses/output/table_core_periphery_full.tex             — all nodes, 2022 networks (longtable)
+#   data/processed/centrality_all.rds                                    — full centrality data frame
+#   thesis_project/analyses/output/table_centrality_fe22.tex             — frontend 2022 rankings (longtable)
+#   thesis_project/analyses/output/table_centrality_be22.tex             — backend 2022 rankings (longtable)
+#   thesis_project/analyses/output/table_centrality_full.tex             — both layers combined, 2022 (longtable)
+#   thesis_project/analyses/output/table_centrality_norway.tex           — Norway centrality, 2022 (primary)
+#   thesis_project/analyses/output/table_centrality_norway_appendix.tex  — Norway centrality, 2019 (robustness)
 #
 # Run from project root: Rscript analyses/09_centrality.R
 
@@ -94,10 +82,6 @@ g_be_22 <- add_dist_weight(g_be_22)
 # All igraph functions called with igraph:: prefix.
 # V(g)$name stores ISO3 codes (set by 06_geopolitical_attrs.R via attach_node_attrs).
 # eigen_centrality() returns a list; extract $vector for the node scores.
-#
-# coreness is computed on the symmetrised (undirected) graph so that the
-# k-core shell index reflects overall embeddedness, not directionality.
-# igraph::as.undirected(mode = "collapse") sums parallel edge weights.
 
 make_cent <- function(g, layer_label, yr) {
 
@@ -127,14 +111,6 @@ make_cent <- function(g, layer_label, yr) {
               "and will appear as NA.")
   }
 
-  # Symmetrise for coreness (k-core is defined on undirected graphs)
-  g_ud  <- igraph::as.undirected(
-    g,
-    mode           = "collapse",
-    edge.attr.comb = list(weight_marketshare = "sum", "ignore")
-  )
-  cores <- igraph::coreness(g_ud)                # named integer vector
-
   tibble(
     iso3         = raw_names,   # normalised ISO3 codes
     degree_in    = igraph::degree(g, mode = "in"),
@@ -153,23 +129,17 @@ make_cent <- function(g, layer_label, yr) {
       g,
       directed = TRUE,
       weights  = igraph::E(g)$weight_marketshare
-    )$vector,
-    coreness     = as.integer(cores[igraph::V(g)$name])  # indexed by original names; safe
+    )$vector
   ) |>
     mutate(
-      country      = countrycode::countrycode(
+      country   = countrycode::countrycode(
         iso3, "iso3c", "country.name",
         custom_match = c(TWN = "Taiwan", NOR = "Norway")
       ),
-      layer        = layer_label,
-      year         = yr,
-      is_norway    = iso3 == FOCAL_COUNTRY,
-      # Core classification: node is "core" if it is in the maximum k-shell
-      core_max     = max(coreness),
-      is_core      = coreness == core_max,
-      coreness_pct = round(100 * coreness / core_max, 1)   # % of max shell
-    ) |>
-    select(-core_max)   # drop helper column; keep is_core and coreness_pct
+      layer     = layer_label,
+      year      = yr,
+      is_norway = iso3 == FOCAL_COUNTRY
+    )
 }
 
 # ── Compute centrality for all four networks ──────────────────────────────────
@@ -191,27 +161,6 @@ centrality_all |>
   select(layer, year, degree_out, degree_in, strength_out, strength_in,
          betweenness, eigenvector) |>
   mutate(across(where(is.double), ~round(.x, 4))) |>
-  print()
-
-# Norway core-periphery summary (console)
-message("\nNorway core-periphery position (k-core decomposition):")
-centrality_all |>
-  filter(iso3 == FOCAL_COUNTRY) |>
-  select(layer, year, coreness, coreness_pct, is_core) |>
-  print()
-
-message("\nNetwork max k-shell and number of core nodes:")
-centrality_all |>
-  group_by(layer, year) |>
-  summarise(
-    n_nodes    = n(),
-    max_shell  = max(coreness),
-    n_core     = sum(is_core),
-    nor_shell  = coreness[iso3 == FOCAL_COUNTRY],
-    nor_pct    = coreness_pct[iso3 == FOCAL_COUNTRY],
-    nor_is_core = is_core[iso3 == FOCAL_COUNTRY],
-    .groups = "drop"
-  ) |>
   print()
 
 # ── Save combined RDS (consumed by 11_multiplex.R) ───────────────────────────
@@ -348,102 +297,6 @@ write_tex(
     "TWN had no edges and was removed to avoid an isolated node)."
   ),
   label   = "tab:centrality-norway-appendix"
-)
-
-# =============================================================================
-# Core-periphery tables
-# =============================================================================
-
-# ── Helper: build Norway's k-core position table for one year ────────────────
-
-norway_cp_format <- function(df, yr) {
-  df |>
-    group_by(layer, year) |>
-    mutate(
-      n_nodes   = n(),
-      max_shell = max(coreness),
-      n_core    = sum(is_core)
-    ) |>
-    ungroup() |>
-    filter(iso3 == FOCAL_COUNTRY, year == yr) |>
-    arrange(layer) |>
-    select(
-      Layer          = layer,
-      Year           = year,
-      `k-shell`      = coreness,
-      `Max shell`    = max_shell,
-      `Shell %`      = coreness_pct,
-      `Core?`        = is_core,
-      `N core nodes` = n_core,
-      `N nodes`      = n_nodes
-    ) |>
-    mutate(`Core?` = if_else(`Core?`, "Yes", "No"))
-}
-
-# ── TABLE: Norway core-periphery — primary (2022 only) ────────────────────────
-write_tex(
-  norway_cp_format(centrality_all, 2022),
-  path    = file.path(DIRS$tables, "table_core_periphery_norway.tex"),
-  caption = paste0(
-    "Norway's structural position in the k-core decomposition of each ",
-    "semiconductor trade network (2022). ",
-    "\\textit{k-shell} = Norway's coreness index; ",
-    "\\textit{Max shell} = highest k-shell in the network (defines the core); ",
-    "\\textit{Shell \\%} = Norway's shell as a percentage of the maximum; ",
-    "\\textit{Core?} = whether Norway is in the maximum k-shell. ",
-    "Coreness computed on the symmetrised (undirected) graph. ",
-    "2019 results in Table~\\ref{tab:core-periphery-norway-appendix}."
-  ),
-  label   = "tab:core-periphery-norway"
-)
-
-# ── TABLE: Norway core-periphery — appendix (2019 robustness check) ───────────
-write_tex(
-  norway_cp_format(centrality_all, 2019),
-  path    = file.path(DIRS$tables, "table_core_periphery_norway_appendix.tex"),
-  caption = paste0(
-    "Norway's structural position in the k-core decomposition of each ",
-    "semiconductor trade network (2019). Reported as robustness check. ",
-    "2019 results confirm that 2022 findings are not driven by post-COVID supply chain disruptions. ",
-    "Taiwan (TWN) excluded from 2019 networks (ITA data is 2022-only; ",
-    "TWN had no edges and was removed to avoid an isolated node)."
-  ),
-  label   = "tab:core-periphery-norway-appendix"
-)
-
-# ── TABLE: Full core-periphery rankings — 2022 networks (longtable) ───────────
-#
-# All nodes, both 2022 layers, sorted by layer → coreness → out-strength.
-# 60 rows (30 countries × 2 layers) → longtable for multi-page rendering.
-
-cp_2022 <- centrality_all |>
-  filter(year == 2022) |>
-  arrange(layer, desc(coreness), desc(strength_out)) |>
-  mutate(
-    `Core?`  = if_else(is_core, "Core", "Periphery"),
-    coreness = as.integer(coreness)
-  ) |>
-  select(
-    Layer       = layer,
-    ISO3        = iso3,
-    Country     = country,
-    `k-shell`   = coreness,
-    `Shell %`   = coreness_pct,
-    `Core?`,
-    `Str. out`  = strength_out,
-    Eigenvector = eigenvector
-  ) |>
-  mutate(across(c(`Str. out`, Eigenvector), ~round(.x, 4)))
-
-write_tex_long(
-  cp_2022,
-  path    = file.path(DIRS$tables, "table_core_periphery_full.tex"),
-  caption = paste0(
-    "K-core decomposition of the front-end and back-end semiconductor trade networks (2022). ",
-    "Nodes classified as \\textit{Core} if they belong to the maximum k-shell. ",
-    "Sorted by layer, k-shell (descending), then out-strength."
-  ),
-  label   = "tab:core-periphery-full"
 )
 
 message("\n09_centrality.R complete.")
