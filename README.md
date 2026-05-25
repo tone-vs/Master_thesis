@@ -12,18 +12,26 @@ value chain using network analysis (SNA) and Exponential Random Graph Models
 ## Repository structure
 
 ```
-create_data/          Data preparation scripts (run in order 01–06)
-analyses/             SNA and ERGM analysis scripts
-analyses/output/      LaTeX tables saved by analysis scripts (git-ignored)
-plots/                Visualisation scripts
-plots/output/         PDF figures saved by plot scripts (git-ignored)
+create_data/                  Data preparation scripts (run in order 01–06)
+analyses/                     SNA and ERGM analysis scripts
+plots/                        Visualisation scripts
 data/
-  raw/                Raw input files (not committed — see Data section below)
-  processed/          Pipeline outputs (git-ignored; regenerate via make data)
-config.R              Shared constants (YEARS, HS codes, directory paths)
-final_analysis.Rmd    Main analysis notebook (knit after running the pipeline)
-Makefile              Reproducible build — run `make` to execute everything
+  raw/                        Raw input files (not committed — see Data section below)
+  processed/                  Pipeline outputs (git-ignored; regenerate via pipeline)
+thesis_project/               LaTeX source for the thesis (Overleaf-compatible)
+  chapters/                   .tex chapter files
+  bibliography/               references.bib
+  analyses/output/            ← R scripts write .tex tables HERE (committed)
+  plots/output/               ← R scripts write .pdf/.png figures HERE (committed)
+  main.tex                    Master LaTeX document
+config.R                      Shared constants (YEARS, HS codes, DIRS paths)
+thesis_analysis.Rmd           R Markdown notebook (optional; knit after pipeline)
 ```
+
+All R scripts write their outputs directly into `thesis_project/analyses/output/`
+and `thesis_project/plots/output/` using the `DIRS$tables` and `DIRS$figures`
+variables defined in `config.R`. This means running any analysis script
+automatically updates the LaTeX project.
 
 ## Setup
 
@@ -34,7 +42,7 @@ install.packages(c(
   "comtradr", "dplyr", "tidyr", "readr", "purrr", "igraph",
   "tidygraph", "ggraph", "ggplot2", "ggrepel", "patchwork",
   "countrycode", "WDI", "unvotes", "lubridate", "scales",
-  "statnet", "ergm", "stargazer", "knitr", "kableExtra", "cli"
+  "statnet", "ergm", "modelsummary", "cli"
 ))
 ```
 

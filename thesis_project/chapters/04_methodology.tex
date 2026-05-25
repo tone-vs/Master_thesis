@@ -1,0 +1,48 @@
+% chapters/04_methodology.tex
+% Target: 400–500 words
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Network Construction}
+\label{sec:method_network}
+
+% Directed weighted networks: edge weight = trade value (USD).
+% Three edge weight variants used downstream:
+%   weight_binary        → Louvain community detection, ERGM outcome
+%   weight_marketshare   → strength centrality, edge thickness in plots
+%   weight_log           → ERGM continuous covariate (log USD)
+% Shared node set across all four networks (two layers × two years).
+
+[Write network construction section here]
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Descriptive Network Analysis}
+\label{sec:method_descriptive}
+
+% Centrality measures (igraph):
+%   - Out-strength / in-strength
+%   - Betweenness centrality (brokerage / chokepoint potential)
+%   - Eigenvector centrality (influence in the network)
+% Community detection: Louvain algorithm on undirected projections.
+%   Identifies GVC blocs; check whether Norway clusters with European group.
+% Multiplex layer comparison: inter-layer centrality correlation.
+
+[Write descriptive methods section here]
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Exponential Random Graph Models}
+\label{sec:method_ergm}
+
+% ERGMs (statnet/ergm) — probability model over network tie formation.
+% Endogenous structural terms: edges, reciprocity, GWESP (transitivity),
+%   in-degree / out-degree distribution.
+% Exogenous node covariates: RCA (sectoral specialisation), patents (R\&D),
+%   GDP (economic size).
+% Dyadic covariate: UNGA voting similarity (friendshoring proxy).
+% Model specifications:
+%   Model 1 — structural terms only
+%   Model 2 — full specification (structural + node covariates + UNGA)
+% Three comparisons: back-end only; layer comparison (FE vs BE, 2022);
+%   temporal comparison (BE 2019 vs 2022).
+% MCMC diagnostics and goodness-of-fit reported in Annex~C.
+
+[Write ERGM methods section here]

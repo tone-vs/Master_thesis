@@ -1,0 +1,167 @@
+% chapters/05_results.tex
+% Results chapter — all tables and figures come from R output files.
+% Main-text tables:  \ttabbox wrapper (floatrow)
+% Main-text figures: \ffigbox wrapper (floatrow)
+% Annex tables/figures are in main.tex, not here.
+
+\section{Norway's Descriptive Trade Profile}
+\label{sec:descriptive}
+
+Before presenting the network analysis results, this section characterises
+Norway's semiconductor trade through descriptive statistics, establishing
+the bilateral trade patterns that the SNA results will later contextualise
+structurally.
+
+Norway's bilateral semiconductor trade profile reveals a clear layer asymmetry. In the front-end layer Norway maintained a net export position across both years, though the ratio narrowed from 3.76 in 2019 to 1.43 in 2022 as imports more than doubled from \$21M to \$47M. The growing front-end import demand is consistent with expanding domestic MEMS manufacturing activity documented by Menon Economics (2023), with a 41 percent growth in Norwegian MEMS and optoelectronics employment between 2019 and 2023. This suggests an increased need for silicon-based inputs and semiconductor materials for domestic fabrication activity.
+
+In the back-end layer Norway was a net importer across both years, with imports growing from \$145M to \$183M while exports remained flat at approximately \$62--63M. The dominant import products, other integrated circuits (HS 854239) and processors (HS 854231), are consistent with Menon Economics (2023), which identifies electronic integrated circuits as Norway's primary semiconductor import category, with an import value of approximately 2.5 billion NOK in 2022 sourced predominantly from China, Taiwan, Germany and South Korea. Norway's back-end export presence in the same IC codes most plausibly reflects commercial distribution activity linked to Nordic Semiconductor, Europe's largest fabless chip designer, accounting for over 60 percent of Norwegian semiconductor value added (Menon Economics, 2023), rather than domestic manufacturing. Germany was Norway's largest bilateral semiconductor partner (\$71M combined, \$64.5M imports), while China represented Norway's largest positive trade balance (\$18M surplus), receiving Norwegian upstream material exports. Sweden was Norway's third largest bilateral partner (\$38.2M combined) and the only top partner with a near-balanced trade position, which contrasts with Norway's clear import dependency toward Germany, the United States, and Asian suppliers. The near-balanced bilateral trade suggests regional integration within the Nordic semiconductor ecosystem, supported by the later established Nordic Chip Collaboration, which formalised cooperation between Norwegian, Swedish and Finnish semiconductor actors in 2024 (Nordic Innovation, 2025).
+
+\input{analyses/output/table_layer_asymmetry}
+
+\begin{figure}[H]
+  \ffigbox[\FBwidth]{%
+    \caption[Norway's top bilateral semiconductor trade partners (2022)]{Norway's top bilateral semiconductor trade partners by layer (2022).
+      Source: UN Comtrade; OECD BTIGE; Taiwan ITA. Author's calculations.}
+    \label{fig:norway_partners}
+  }{%
+    \includegraphics[width=\textwidth]{fig_norway_partners}
+  }
+\end{figure}
+
+\begin{figure}[H]
+  \ffigbox[\FBwidth]{%
+    \caption[Norway's top semiconductor products by HS code (2022)]{Norway's top semiconductor products by HS code (2022).
+      Left panel: exports. Right panel: imports. Colours indicate layer.
+      Source: UN Comtrade; OECD BTIGE; Taiwan ITA. Author's calculations.}
+    \label{fig:norway_hs_trade}
+  }{%
+    \includegraphics[width=\textwidth]{fig_norway_hs_combined}
+  }
+\end{figure}
+
+\clearpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Network Summary Statistics}
+\label{sec:network_summary}
+
+\input{analyses/output/table_network_summary}
+
+\clearpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Centrality Analysis}
+\label{sec:centrality}
+
+\subsection{Norway's Centrality Across Layers and Years}
+
+\input{analyses/output/table_centrality_norway}
+
+\subsection{Core-Periphery Structure}
+
+\input{analyses/output/table_core_periphery_norway}
+
+\begin{figure}[H]
+  \ffigbox[\FBwidth]{%
+    \caption[Centrality scatter: brokerage vs.\ influence (2022)]{Brokerage (betweenness) vs.\ influence (eigenvector) centrality, 2022.
+      Norway highlighted in red.
+      Source: UN Comtrade; OECD BTIGE. Author's calculations.}
+    \label{fig:centrality_scatter}
+  }{%
+    \includegraphics[width=\textwidth]{cent_scatter_2022}
+  }
+\end{figure}
+
+\begin{figure}[H]
+  \ffigbox[\FBwidth]{%
+    \caption[Centrality ranks across front-end and back-end layers (2022)]{Centrality rank comparison across front-end and back-end layers, 2022.
+      Norway highlighted.
+      Source: UN Comtrade; OECD BTIGE. Author's calculations.}
+    \label{fig:cent_ranks}
+  }{%
+    \includegraphics[width=\textwidth]{cent_ranks_2022}
+  }
+\end{figure}
+
+\begin{figure}[H]
+  \ffigbox[\FBwidth]{%
+    \caption[Core-periphery structure of the global semiconductor trade network (2022)]{Core-periphery structure of the global semiconductor trade network, 2022.
+      Node size = out-strength. Norway = diamond (\(\diamondsuit\)).
+      Source: UN Comtrade; OECD BTIGE. K-core decomposition following Ou et al.\ (2024). Author's calculations.}
+    \label{fig:cp_combined}
+  }{%
+    \includegraphics[width=\textwidth]{fig_cp_combined_2022}
+  }
+\end{figure}
+
+\clearpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Community Detection}
+\label{sec:communities}
+
+\input{analyses/output/table_community_summary}
+
+\input{analyses/output/table_community_norway}
+
+\begin{figure}[H]
+  \ffigbox[\FBwidth]{%
+    \caption[Front-end and back-end semiconductor trade networks with community detection (2022)]{Front-end and back-end semiconductor trade networks, 2022.
+      Node size = out-strength. Fill = Louvain community. Norway = diamond.
+      Source: UN Comtrade; OECD BTIGE; Taiwan ITA. Author's calculations.}
+    \label{fig:net_combined_2022}
+  }{%
+    \includegraphics[width=\textwidth]{net_combined_2022}
+  }
+\end{figure}
+
+\begin{figure}[H]
+  \ffigbox[\FBwidth]{%
+    \caption[Norway's community membership and UNGA voting alignment]{Norway's community co-membership and UNGA voting similarity scores across layers and years.
+      Source: UN Comtrade; OECD BTIGE; UNGA voting data. Author's calculations.}
+    \label{fig:comm_norway_unga}
+  }{%
+    \includegraphics[width=\textwidth]{comm_norway_unga}
+  }
+\end{figure}
+
+\begin{figure}[H]
+  \ffigbox[\FBwidth]{%
+    \caption[UNGA voting similarity within and between communities (2022)]{Distribution of UNGA voting similarity within and between communities, 2022.
+      Source: UN Comtrade; OECD BTIGE; UNGA voting data. Author's calculations.}
+    \label{fig:comm_unga_hist}
+  }{%
+    \includegraphics[width=\textwidth]{comm_unga_hist}
+  }
+\end{figure}
+
+\clearpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Multiplex Analysis}
+\label{sec:multiplex}
+
+\input{analyses/output/table_multiplex_change}
+
+\clearpage
+
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Exponential Random Graph Models}
+\label{sec:ergm}
+
+\subsection{Back-end Layer}
+
+\input{analyses/output/table_ergm_backend}
+
+\subsection{Layer Comparison}
+
+\input{analyses/output/table_ergm_layer}
+
+\subsection{Temporal Comparison}
+
+\input{analyses/output/table_ergm_temporal}

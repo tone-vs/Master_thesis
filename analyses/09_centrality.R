@@ -30,23 +30,24 @@
 #   data/processed/graph_backend_2022.rds
 #
 # Outputs:
-#   data/processed/centrality_all.rds               — full centrality data frame
-#                                                      (includes coreness column)
-#   analyses/output/table_centrality_fe22.tex        — frontend 2022 rankings
-#   analyses/output/table_centrality_be22.tex        — backend 2022 rankings
-#   analyses/output/table_centrality_norway.tex      — Norway centrality, all networks
-#   analyses/output/table_core_periphery_norway.tex  — Norway core-periphery position
-#   analyses/output/table_core_periphery_full.tex    — all nodes, 2022 networks
+#   data/processed/centrality_all.rds                                        — full centrality data frame
+#                                                                               (includes coreness column)
+#   thesis_project/analyses/output/table_centrality_fe22.tex                 — frontend 2022 rankings (longtable)
+#   thesis_project/analyses/output/table_centrality_be22.tex                 — backend 2022 rankings (longtable)
+#   thesis_project/analyses/output/table_centrality_full.tex                 — both layers combined, 2022 (longtable)
+#   thesis_project/analyses/output/table_centrality_norway.tex               — Norway centrality, 2022 (primary)
+#   thesis_project/analyses/output/table_centrality_norway_appendix.tex      — Norway centrality, 2019 (robustness)
+#   thesis_project/analyses/output/table_core_periphery_norway.tex           — Norway k-core position, 2022 (primary)
+#   thesis_project/analyses/output/table_core_periphery_norway_appendix.tex  — Norway k-core position, 2019 (robustness)
+#   thesis_project/analyses/output/table_core_periphery_full.tex             — all nodes, 2022 networks (longtable)
 #
 # Run from project root: Rscript analyses/09_centrality.R
 
 library(igraph)      # loaded for class dispatch; all calls use igraph:: prefix
 library(dplyr)
 library(countrycode)
-library(knitr)
-library(kableExtra)
-
 source("config.R")
+source("analyses/table_helpers.R")
 
 # ── Guard: check inputs ───────────────────────────────────────────────────────
 graph_files <- c(
@@ -62,7 +63,7 @@ if (length(missing) > 0) {
        "\nRun create_data/05_build_network_data.R first.")
 }
 
-dir.create("analyses/output", recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$tables, recursive = TRUE, showWarnings = FALSE)
 
 # ── Load graphs ───────────────────────────────────────────────────────────────
 g_fe_19 <- readRDS(graph_files["fe_2019"])
@@ -217,42 +218,50 @@ centrality_all |>
 saveRDS(centrality_all, file.path("data/processed", "centrality_all.rds"))
 message("Saved: data/processed/centrality_all.rds")
 
-# ── Helper: write a LaTeX table to analyses/output/ ──────────────────────────
-write_tex <- function(tbl, path, caption, label) {
-  tex <- knitr::kable(
-    tbl,
-    format   = "latex",
-    booktabs = TRUE,
-    digits   = 4,
-    caption  = caption,
-    label    = label,
-    linesep  = ""
-  )
-  writeLines(as.character(tex), path)
-  message("Saved: ", path)
-}
+# ── Helpers: format centrality data frames for LaTeX ─────────────────────────
+#
+#  format_cent_table()      — single-layer table: Country, measures (no Layer col)
+#  format_cent_table_full() — combined table: Layer, ISO3, measures
 
-# ── Helper: format a centrality data frame for a LaTeX rankings table ─────────
 format_cent_table <- function(cent_df) {
   cent_df |>
     arrange(desc(strength_out)) |>
     mutate(across(c(strength_in, strength_out, betweenness, eigenvector),
                   ~round(.x, 4))) |>
     select(
-      Country      = iso3,
-      `In-deg`     = degree_in,
-      `Out-deg`    = degree_out,
-      `Str. in`    = strength_in,
-      `Str. out`   = strength_out,
-      Betweenness  = betweenness,
-      Eigenvector  = eigenvector
+      Country     = iso3,
+      `In-deg`    = degree_in,
+      `Out-deg`   = degree_out,
+      `Str. in`   = strength_in,
+      `Str. out`  = strength_out,
+      Betweenness = betweenness,
+      Eigenvector = eigenvector
     )
 }
 
-# ── TABLE: Frontend 2022 centrality rankings ──────────────────────────────────
-write_tex(
+format_cent_table_full <- function(cent_22) {
+  # Both layers combined; Layer + ISO3 as identifiers, no Country name column.
+  # Sorted by layer then out-strength descending.
+  cent_22 |>
+    arrange(layer, desc(strength_out)) |>
+    mutate(across(c(strength_in, strength_out, betweenness, eigenvector),
+                  ~round(.x, 4))) |>
+    select(
+      Layer       = layer,
+      ISO3        = iso3,
+      `In-deg`    = degree_in,
+      `Out-deg`   = degree_out,
+      `Str. in`   = strength_in,
+      `Str. out`  = strength_out,
+      Betweenness = betweenness,
+      Eigenvector = eigenvector
+    )
+}
+
+# ── TABLE: Frontend 2022 centrality rankings (longtable — 30 rows) ────────────
+write_tex_long(
   format_cent_table(cent_fe_22),
-  path    = "analyses/output/table_centrality_fe22.tex",
+  path    = file.path(DIRS$tables, "table_centrality_fe22.tex"),
   caption = paste0(
     "Frontend layer (2022) centrality rankings, sorted by out-strength. ",
     "Strength = weighted degree (market-share weights). ",
@@ -262,116 +271,173 @@ write_tex(
   label   = "tab:centrality-fe22"
 )
 
-# ── TABLE: Backend 2022 centrality rankings ───────────────────────────────────
-write_tex(
+# ── TABLE: Backend 2022 centrality rankings (longtable — 30 rows) ─────────────
+write_tex_long(
   format_cent_table(cent_be_22),
-  path    = "analyses/output/table_centrality_be22.tex",
-  caption = "Backend layer (2022) centrality rankings, sorted by out-strength. See Table~\\ref{tab:centrality-fe22} for column definitions.",
+  path    = file.path(DIRS$tables, "table_centrality_be22.tex"),
+  caption = paste0(
+    "Backend layer (2022) centrality rankings, sorted by out-strength. ",
+    "See Table~\\ref{tab:centrality-fe22} for column definitions."
+  ),
   label   = "tab:centrality-be22"
 )
 
-# ── TABLE: Norway across all layer-year combinations ─────────────────────────
-norway_cent <- centrality_all |>
-  filter(iso3 == FOCAL_COUNTRY) |>
-  mutate(across(c(strength_in, strength_out, betweenness, eigenvector),
-                ~round(.x, 5))) |>
-  arrange(layer, year) |>
-  select(
-    Layer        = layer,
-    Year         = year,
-    `In-degree`  = degree_in,
-    `Out-degree` = degree_out,
-    `Str. in`    = strength_in,
-    `Str. out`   = strength_out,
-    Betweenness  = betweenness,
-    Eigenvector  = eigenvector
-  )
+# ── TABLE: Full rankings — both layers combined (2022, longtable) ─────────────
+#
+# Combined table for cross-layer comparison; one row per country per layer.
+# Intended for the appendix: 60 rows (30 countries × 2 layers).
+
+write_tex_long(
+  format_cent_table_full(bind_rows(cent_fe_22, cent_be_22)),
+  path    = file.path(DIRS$tables, "table_centrality_full.tex"),
+  caption = paste0(
+    "Full centrality rankings for all countries, front-end and back-end layers (2022). ",
+    "Sorted by layer then out-strength (descending). ",
+    "Betweenness normalised to $[0,1]$; weights inverted so strong ties $=$ short distances."
+  ),
+  label   = "tab:centrality-full"
+)
+
+# ── TABLE: Norway centrality — primary (2022 only) ────────────────────────────
+#
+# Primary table for the main analysis chapter.
+# 2019 results reported separately as a robustness check (appendix).
+
+norway_cent_format <- function(df) {
+  df |>
+    filter(iso3 == FOCAL_COUNTRY) |>
+    mutate(across(c(strength_in, strength_out, betweenness, eigenvector),
+                  ~round(.x, 4))) |>
+    arrange(layer) |>
+    select(
+      Layer        = layer,
+      Year         = year,
+      `In-degree`  = degree_in,
+      `Out-degree` = degree_out,
+      `Str. in`    = strength_in,
+      `Str. out`   = strength_out,
+      Betweenness  = betweenness,
+      Eigenvector  = eigenvector
+    )
+}
 
 write_tex(
-  norway_cent,
-  path    = "analyses/output/table_centrality_norway.tex",
+  norway_cent_format(centrality_all |> filter(year == 2022)),
+  path    = file.path(DIRS$tables, "table_centrality_norway.tex"),
   caption = paste0(
-    "Norway's centrality scores across all layer--year combinations. ",
+    "Norway's centrality scores by layer (2022). ",
     "Strength weighted by bilateral market share. ",
-    "Betweenness normalised to $[0,1]$."
+    "Betweenness normalised to $[0,1]$. ",
+    "2019 results in Table~\\ref{tab:centrality-norway-appendix}."
   ),
   label   = "tab:centrality-norway"
+)
+
+# ── TABLE: Norway centrality — appendix (2019 robustness check) ───────────────
+#
+# Taiwan (TWN) absent from 2019 networks: ITA data is 2022-only; node count = 29.
+# 2019 results confirm that 2022 findings are not driven by post-COVID disruptions.
+
+write_tex(
+  norway_cent_format(centrality_all |> filter(year == 2019)),
+  path    = file.path(DIRS$tables, "table_centrality_norway_appendix.tex"),
+  caption = paste0(
+    "Norway's centrality scores by layer (2019). Reported as robustness check. ",
+    "2019 results confirm that 2022 findings are not driven by post-COVID supply chain disruptions. ",
+    "Taiwan (TWN) excluded from 2019 networks (ITA data is 2022-only; ",
+    "TWN had no edges and was removed to avoid an isolated node)."
+  ),
+  label   = "tab:centrality-norway-appendix"
 )
 
 # =============================================================================
 # Core-periphery tables
 # =============================================================================
 
-# ── TABLE: Norway's core-periphery position across all networks ───────────────
-#
-# Shows Norway's k-shell index, the maximum shell in that network,
-# Norway's shell as a percentage of the max, and whether Norway is
-# classified as a core member.
+# ── Helper: build Norway's k-core position table for one year ────────────────
 
-norway_cp <- centrality_all |>
-  group_by(layer, year) |>
-  mutate(
-    n_nodes   = n(),
-    max_shell = max(coreness),
-    n_core    = sum(is_core)
-  ) |>
-  ungroup() |>
-  filter(iso3 == FOCAL_COUNTRY) |>
-  arrange(layer, year) |>
-  select(
-    Layer          = layer,
-    Year           = year,
-    `k-shell`      = coreness,
-    `Max shell`    = max_shell,
-    `Shell %`      = coreness_pct,
-    `Core?`        = is_core,
-    `N core nodes` = n_core,
-    `N nodes`      = n_nodes
-  ) |>
-  mutate(`Core?` = if_else(`Core?`, "Yes", "No"))
+norway_cp_format <- function(df, yr) {
+  df |>
+    group_by(layer, year) |>
+    mutate(
+      n_nodes   = n(),
+      max_shell = max(coreness),
+      n_core    = sum(is_core)
+    ) |>
+    ungroup() |>
+    filter(iso3 == FOCAL_COUNTRY, year == yr) |>
+    arrange(layer) |>
+    select(
+      Layer          = layer,
+      Year           = year,
+      `k-shell`      = coreness,
+      `Max shell`    = max_shell,
+      `Shell %`      = coreness_pct,
+      `Core?`        = is_core,
+      `N core nodes` = n_core,
+      `N nodes`      = n_nodes
+    ) |>
+    mutate(`Core?` = if_else(`Core?`, "Yes", "No"))
+}
 
+# ── TABLE: Norway core-periphery — primary (2022 only) ────────────────────────
 write_tex(
-  norway_cp,
-  path    = "analyses/output/table_core_periphery_norway.tex",
+  norway_cp_format(centrality_all, 2022),
+  path    = file.path(DIRS$tables, "table_core_periphery_norway.tex"),
   caption = paste0(
     "Norway's structural position in the k-core decomposition of each ",
-    "semiconductor trade network. ",
+    "semiconductor trade network (2022). ",
     "\\textit{k-shell} = Norway's coreness index; ",
     "\\textit{Max shell} = highest k-shell in the network (defines the core); ",
     "\\textit{Shell \\%} = Norway's shell as a percentage of the maximum; ",
     "\\textit{Core?} = whether Norway is in the maximum k-shell. ",
-    "Coreness computed on the symmetrised (undirected) graph."
+    "Coreness computed on the symmetrised (undirected) graph. ",
+    "2019 results in Table~\\ref{tab:core-periphery-norway-appendix}."
   ),
   label   = "tab:core-periphery-norway"
 )
 
-# ── TABLE: Full core-periphery rankings — 2022 networks ───────────────────────
+# ── TABLE: Norway core-periphery — appendix (2019 robustness check) ───────────
+write_tex(
+  norway_cp_format(centrality_all, 2019),
+  path    = file.path(DIRS$tables, "table_core_periphery_norway_appendix.tex"),
+  caption = paste0(
+    "Norway's structural position in the k-core decomposition of each ",
+    "semiconductor trade network (2019). Reported as robustness check. ",
+    "2019 results confirm that 2022 findings are not driven by post-COVID supply chain disruptions. ",
+    "Taiwan (TWN) excluded from 2019 networks (ITA data is 2022-only; ",
+    "TWN had no edges and was removed to avoid an isolated node)."
+  ),
+  label   = "tab:core-periphery-norway-appendix"
+)
+
+# ── TABLE: Full core-periphery rankings — 2022 networks (longtable) ───────────
 #
-# All nodes, both 2022 layers, sorted by coreness descending.
-# Gives the thesis a complete cross-reference for the Norway position.
+# All nodes, both 2022 layers, sorted by layer → coreness → out-strength.
+# 60 rows (30 countries × 2 layers) → longtable for multi-page rendering.
 
 cp_2022 <- centrality_all |>
   filter(year == 2022) |>
   arrange(layer, desc(coreness), desc(strength_out)) |>
   mutate(
-    `Core?`   = if_else(is_core, "Core", "Periphery"),
-    coreness  = as.integer(coreness)
+    `Core?`  = if_else(is_core, "Core", "Periphery"),
+    coreness = as.integer(coreness)
   ) |>
   select(
-    Layer      = layer,
-    ISO3       = iso3,
-    Country    = country,
-    `k-shell`  = coreness,
-    `Shell %`  = coreness_pct,
+    Layer       = layer,
+    ISO3        = iso3,
+    Country     = country,
+    `k-shell`   = coreness,
+    `Shell %`   = coreness_pct,
     `Core?`,
-    `Str. out` = strength_out,
+    `Str. out`  = strength_out,
     Eigenvector = eigenvector
   ) |>
   mutate(across(c(`Str. out`, Eigenvector), ~round(.x, 4)))
 
-write_tex(
+write_tex_long(
   cp_2022,
-  path    = "analyses/output/table_core_periphery_full.tex",
+  path    = file.path(DIRS$tables, "table_core_periphery_full.tex"),
   caption = paste0(
     "K-core decomposition of the front-end and back-end semiconductor trade networks (2022). ",
     "Nodes classified as \\textit{Core} if they belong to the maximum k-shell. ",

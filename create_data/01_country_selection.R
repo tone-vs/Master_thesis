@@ -186,9 +186,12 @@ write_csv(
 message("\nSaved: country_selection.csv — use for thesis appendix table")
 
 # 5. Pull total exports across all goods — needed for RCA denominator
-message("Pulling total exports for RCA denominator...")
+# Include FORCED_INCLUSIONS (e.g. Nordic comparators) even if below coverage
+# threshold, so their RCA denominator is available in 05_build_network_data.R.
+reporters_rca <- union(reporters, FORCED_INCLUSIONS)
+message("Pulling total exports for RCA denominator (N = ", length(reporters_rca), " reporters)...")
 total_exports_raw <- ct_get_data(
-  reporter       = reporters,
+  reporter       = reporters_rca,
   partner        = "all_countries",
   commodity_code = "TOTAL",
   start_date     = 2019,

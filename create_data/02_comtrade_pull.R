@@ -38,7 +38,7 @@ source("config.R")
 
 set_primary_comtrade_key(Sys.getenv("COMTRADE_PRIMARY_KEY"))
 
-dir.create("data/semiconductor", recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$network, recursive = TRUE, showWarnings = FALSE)
 
 checkpoint_every <- 50
 
@@ -254,7 +254,7 @@ network_df <- network_df |>
     )
   )
 
-output_path <- file.path("data/semiconductor", "semiconductor_network.csv")
+output_path <- file.path(DIRS$network, "semiconductor_network.csv")
 write_csv(network_df, output_path)
 
 cli::cli_inform(c(

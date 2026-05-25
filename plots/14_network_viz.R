@@ -18,12 +18,10 @@
 #   data/processed/communities.rds         — named list of community objects
 #
 # Outputs (PDF, no screen display):
-#   plots/output/net_fe_2022.pdf           — frontend 2022
-#   plots/output/net_be_2022.pdf           — backend 2022
-#   plots/output/net_fe_2019.pdf           — frontend 2019 (robustness)
-#   plots/output/net_be_2019.pdf           — backend 2019 (robustness)
-#   plots/output/net_combined_2022.pdf     — patchwork 2-panel (2022 only)
-#   plots/output/net_combined_all.pdf      — patchwork 2×2 (all four)
+#   thesis_project/plots/output/net_fe_2019.pdf           — frontend 2019 (robustness)
+#   thesis_project/plots/output/net_be_2019.pdf           — backend 2019 (robustness)
+#   thesis_project/plots/output/net_combined_2022.pdf     — patchwork 2-panel (2022 only)
+#   thesis_project/plots/output/net_combined_2019.pdf     — patchwork 2-panel (2019 robustness)
 #
 # Run from project root: Rscript plots/14_network_viz.R
 
@@ -52,7 +50,7 @@ if (length(missing) > 0) {
        "\nRun create_data/05-06 and analyses/09-10 first.")
 }
 
-dir.create("plots/output", recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$figures, recursive = TRUE, showWarnings = FALSE)
 
 # ── Load inputs ───────────────────────────────────────────────────────────────
 g_fe_19 <- readRDS(inputs["fe_2019"])
@@ -65,7 +63,7 @@ communities    <- readRDS(inputs["communities"])   # named list: fe_2019, fe_202
 
 message("All inputs loaded.")
 
-# ── Decorate graphs with plot attributes ─────────────────────────────────────
+# ── attach plot attributes ─────────────────────────────────────
 #
 # Attach three vertex attributes to each graph before passing to ggraph:
 #   community — integer community ID from Louvain (igraph::membership())
@@ -105,14 +103,15 @@ g_be_19 <- decorate(g_be_19, communities$be_2019, centrality_all, "Back-end",  2
 message("Graph attributes decorated.")
 
 # ── Shared theme ──────────────────────────────────────────────────────────────
-NET_CAPTION <- "Sources: UN Comtrade; OECD BTIGE; Taiwan ITA. igraph + ggraph."
-SUBTITLE    <- "Node size = out-strength  │  Fill = Louvain community  │  Norway (◆)"
+NET_CAPTION <- "Sources: UN Comtrade; Taiwan ITA. igraph + ggraph. Author's calculations."
+notaiwan_CAPTION <- "Sources: UN Comtrade. Taiwan (TWN) excluded — ITA data 2022 only. igraph + ggraph. Author's calculations."
+SUBTITLE    <- "Node size = out-strength  │  Fill = Louvain community │  Edge thickness = trade volume "
 
 # ── Core plot function ────────────────────────────────────────────────────────
 #
 # layout = "fr" (Fruchterman-Reingold) is set INSIDE ggraph() so the same
 # seed controls the layout; set.seed() is called immediately before ggraph().
-# The layout is not stored as a separate object — ggraph computes it lazily
+# The layout is not stored as a separate object — ggraph computes it
 # when the plot is built by ggsave().
 
 network_plot <- function(g, title_str, caption_str = NET_CAPTION) {
@@ -136,7 +135,7 @@ network_plot <- function(g, title_str, caption_str = NET_CAPTION) {
           fontface = ifelse(is_norway, "bold", "plain")),
       repel        = TRUE,
       size         = 3,
-      max.overlaps = 20
+      max.overlaps = 50
     ) +
     scale_edge_width(range = c(0.2, 2.5)) +
     scale_edge_alpha(range = c(0.1, 0.5)) +
@@ -149,6 +148,11 @@ network_plot <- function(g, title_str, caption_str = NET_CAPTION) {
     scale_colour_manual(
       values = c("FALSE" = "grey20", "TRUE" = "red3"),
       guide  = "none"
+    ) +
+    guides(
+      fill = guide_legend(
+        override.aes = list(shape = 21, size = 5, colour = "grey20")
+      )
     ) +
     labs(
       title    = title_str,
@@ -163,26 +167,20 @@ network_plot <- function(g, title_str, caption_str = NET_CAPTION) {
 
 p_fe_22 <- network_plot(g_fe_22, "Front-end Layer — 2022")
 p_be_22 <- network_plot(g_be_22, "Back-end Layer — 2022")
-p_fe_19 <- network_plot(g_fe_19, "Front-end Layer — 2019 (Robustness)")
-p_be_19 <- network_plot(g_be_19, "Back-end Layer — 2019 (Robustness)")
+p_fe_19 <- network_plot(g_fe_19, "Front-end Layer — 2019 (Robustness)", 
+                        caption_str = notaiwan_CAPTION)
+p_be_19 <- network_plot(g_be_19, "Back-end Layer — 2019 (Robustness)",  
+                        caption_str = notaiwan_CAPTION)
 
 # ── Save individual plots ─────────────────────────────────────────────────────
 
-ggsave("plots/output/net_fe_2022.pdf", plot = p_fe_22,
-       width = 11, height = 9, device = cairo_pdf)
-message("Saved: plots/output/net_fe_2022.pdf")
+ggsave(file.path(DIRS$figures, "net_fe_2019.pdf"), plot = p_fe_19,
+       width = 11, height = 9, device = "pdf")
+message("Saved: ", file.path(DIRS$figures, "net_fe_2019.pdf"))
 
-ggsave("plots/output/net_be_2022.pdf", plot = p_be_22,
-       width = 11, height = 9, device = cairo_pdf)
-message("Saved: plots/output/net_be_2022.pdf")
-
-ggsave("plots/output/net_fe_2019.pdf", plot = p_fe_19,
-       width = 11, height = 9, device = cairo_pdf)
-message("Saved: plots/output/net_fe_2019.pdf")
-
-ggsave("plots/output/net_be_2019.pdf", plot = p_be_19,
-       width = 11, height = 9, device = cairo_pdf)
-message("Saved: plots/output/net_be_2019.pdf")
+ggsave(file.path(DIRS$figures, "net_be_2019.pdf"), plot = p_be_19,
+       width = 11, height = 9, device = "pdf")
+message("Saved: ", file.path(DIRS$figures, "net_be_2019.pdf"))
 
 # ── Combined 2022 (side-by-side, thesis figure) ───────────────────────────────
 #
@@ -198,25 +196,23 @@ p_combined_22 <- (
     caption = NET_CAPTION
   )
 
-ggsave("plots/output/net_combined_2022.pdf", plot = p_combined_22,
-       width = 18, height = 9, device = cairo_pdf)
-message("Saved: plots/output/net_combined_2022.pdf")
+ggsave(file.path(DIRS$figures, "net_combined_2022.pdf"), plot = p_combined_22,
+       width = 18, height = 9, device = "pdf")
+message("Saved: ", file.path(DIRS$figures, "net_combined_2022.pdf"))
 
-# ── Combined 2×2 (all four networks, appendix figure) ────────────────────────
-p_combined_all <- (
-  (p_fe_19 + theme(legend.position = "none") |
-   p_fe_22 + theme(legend.position = "none")) /
-  (p_be_19 + theme(legend.position = "none") |
-   p_be_22)
+# ── Combined 2019 (side-by-side, robustness appendix figure) ────────────────
+p_combined_19 <- (
+  p_fe_19 + theme(legend.position = "none") |
+    p_be_19
 ) +
   plot_annotation(
-    title   = "Global Semiconductor Trade Networks — All Layer–Year Combinations",
-    subtitle = "Top row: Frontend (Layer 1)  |  Bottom row: Backend (Layer 2)",
-    caption = NET_CAPTION
+    title   = "Global Semiconductor Trade Networks — 2019 (Robustness)",
+    caption = "Sources: UN Comtrade. Taiwan (TWN) excluded from 2019 networks (ITA data 2022 only). igraph + ggraph. Author's calculations."
   )
 
-ggsave("plots/output/net_combined_all.pdf", plot = p_combined_all,
-       width = 18, height = 16, device = cairo_pdf)
-message("Saved: plots/output/net_combined_all.pdf")
+ggsave(file.path(DIRS$figures, "net_combined_2019.pdf"), 
+       plot = p_combined_19,
+       width = 18, height = 9, device = "pdf")
+message("Saved: ", file.path(DIRS$figures, "net_combined_2019.pdf"))
 
-message("\n14_network_viz.R complete — 6 PDFs written to plots/output/")
+message("\n14_network_viz.R complete — 4 PDFs written to ", DIRS$figures)

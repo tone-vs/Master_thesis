@@ -16,27 +16,36 @@
 #   network due to OECD BTIGE coverage limitations (Taiwan ITA data covers
 #   2022 only), making a cross-year front-end ERGM comparison unreliable.
 #
-# Model structure:
-#   BE 2022 M1: edges + mutual                         (structural baseline)
-#   BE 2022 M2: + nodecov(rca) + nodecov(gdp)          (full — no intermediate;
-#               + nodecov(patents) + edgecov(unga)       ~88% density precludes it)
-#   FE 2022 M1: edges + mutual
-#   FE 2022 M2: edges + mutual + nodecov(rca) + nodecov(gdp)
-#               + nodecov(patents) + edgecov(unga)
-#   BE 2019 M2: same spec as BE 2022 M2   (temporal comparison only)
+#   Temporal consistency: the BE temporal comparison (2019 vs 2022) uses
+#   OECD BTIGE for Taiwan's back-end edges in BOTH years. ITA HS6 data exists
+#   only for 2022, so using it would create a measurement inconsistency in the
+#   2019 vs 2022 comparison. The standard BE 2022 graph (ITA-based) is used
+#   for all non-temporal tables (M1 vs M2, layer comparison).
+#
+# Model structure (three-model progression for each layer × year):
+#   M1 — structural baseline:  edges + mutual
+#   M2 — economic + gravity:   edges + mutual + nodecov(rca) + nodecov(gdp)
+#                              + nodecov(patents) + edgecov(dist)
+#   M3 — full model:           M2 + edgecov(unga)
+#
+#   Fitted for: BE 2022 (ITA), FE 2022 (ITA),
+#               BE 2022 (BTIGE, temporal), BE 2019 (BTIGE, temporal).
+#   FE 2019 is not modelled: Taiwan absent from front-end 2019 network.
 #
 # Inputs:
-#   data/processed/graph_frontend_2022.rds
-#   data/processed/graph_backend_2022.rds
-#   data/processed/graph_backend_2019.rds
+#   data/processed/graph_frontend_2022.rds           — ITA-based (FE M1–M3 + layer)
+#   data/processed/graph_backend_2022.rds            — ITA-based (BE M1–M3 + layer)
+#   data/processed/graph_backend_2022_ergm.rds       — BTIGE Taiwan (BE 2022 temporal)
+#   data/processed/graph_backend_2019_ergm.rds       — BTIGE Taiwan (BE 2019 temporal)
 #   data/processed/node_geopolitical.rds
 #   data/processed/dyad_unga_similarity.rds
 #   data/processed/unga_similarity_matrix.rds
+#   data/processed/dist_matrix_log.rds
 #
 # Outputs:
-#   analyses/output/table_ergm_backend.tex    — BE M1 vs M2 (2022)
-#   analyses/output/table_ergm_layer.tex      — BE M2 vs FE M2 (2022)
-#   analyses/output/table_ergm_temporal.tex   — BE 2019 vs BE 2022 (M2)
+#   thesis_project/analyses/output/table_ergm_backend.tex    — BE M1, M2, M3 (2022)
+#   thesis_project/analyses/output/table_ergm_layer.tex      — BE M3 vs FE M3 (2022)
+#   thesis_project/analyses/output/table_ergm_temporal.tex   — BE 2019 M3 vs BE 2022 M3
 #
 # Run from project root: Rscript analyses/12_ergm.R
 # WARNING: MCMC estimation is slow — allow 30–90 min on a laptop.
@@ -47,36 +56,48 @@
 
 library(igraph)   # load first; calls below use igraph:: so masking is safe
 
+# Standard graphs (ITA-based Taiwan 2022) — used for BE M1 vs M2 vs M3 and
+# layer comparisons.
 graph_files <- c(
   fe_2022 = file.path("data/processed", "graph_frontend_2022.rds"),
-  be_2022 = file.path("data/processed", "graph_backend_2022.rds"),
-  be_2019 = file.path("data/processed", "graph_backend_2019.rds")
+  be_2022 = file.path("data/processed", "graph_backend_2022.rds")
   # fe_2019 intentionally excluded: Taiwan absent from front-end 2019 network
   # (OECD BTIGE coverage gap) — cross-year FE comparison would be unreliable.
 )
 
-missing <- graph_files[!file.exists(graph_files)]
+# ERGM-specific BE graphs (BTIGE Taiwan, both years) — used only for the
+# temporal comparison so that Taiwan's measurement basis is identical in both
+# years.
+ergm_graph_files <- c(
+  be_2022_ergm = file.path("data/processed", "graph_backend_2022_ergm.rds"),
+  be_2019_ergm = file.path("data/processed", "graph_backend_2019_ergm.rds")
+)
+
+missing <- c(graph_files, ergm_graph_files)[!file.exists(c(graph_files, ergm_graph_files))]
 if (length(missing) > 0) {
   stop("Missing graph files: ", paste(names(missing), collapse = ", "),
        "\nRun create_data/05_build_network_data.R first.")
 }
 
-geo_path   <- file.path("data/processed", "node_geopolitical.rds")
+geo_path    <- file.path("data/processed", "node_geopolitical.rds")
 unga_d_path <- file.path("data/processed", "dyad_unga_similarity.rds")
 unga_m_path <- file.path("data/processed", "unga_similarity_matrix.rds")
+dist_path   <- file.path("data/processed", "dist_matrix_log.rds")
 
-for (p in c(geo_path, unga_d_path, unga_m_path)) {
+for (p in c(geo_path, unga_d_path, unga_m_path, dist_path)) {
   if (!file.exists(p)) stop(basename(p), " not found. Run create_data/06_geopolitical_attrs.R first.")
 }
 
 # Load igraph objects
-g_fe_22 <- readRDS(graph_files["fe_2022"])
-g_be_22 <- readRDS(graph_files["be_2022"])
-g_be_19 <- readRDS(graph_files["be_2019"])   # temporal comparison only
+g_fe_22      <- readRDS(graph_files["fe_2022"])
+g_be_22      <- readRDS(graph_files["be_2022"])
+g_be_22_ergm <- readRDS(ergm_graph_files["be_2022_ergm"])  # temporal comparison
+g_be_19_ergm <- readRDS(ergm_graph_files["be_2019_ergm"])  # temporal comparison
 
-# Load geopolitical attributes and UNGA data
-node_geo  <- readRDS(geo_path)
-dyad_unga <- readRDS(unga_d_path)
+# Load geopolitical attributes, UNGA data, and geographic distance matrix
+node_geo        <- readRDS(geo_path)
+dyad_unga       <- readRDS(unga_d_path)
+dist_matrix_log <- readRDS(dist_path)
 
 message("igraph objects and geopolitical data loaded.")
 
@@ -87,25 +108,21 @@ message("igraph objects and geopolitical data loaded.")
 library(statnet)
 library(ergm)
 library(dplyr)
-library(readr)
-library(stargazer)
 library(countrycode)  # needed for vertex-name normalisation fallback
 
 source("config.R")
-dir.create("analyses/output", recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$tables, recursive = TRUE, showWarnings = FALSE)
 
 # =============================================================================
 # 3. igraph → network conversion
 #
-#  igraph::as_adjacency_matrix() and igraph::V() are used with full prefix
-#  so they dispatch to igraph even though statnet has been loaded.
-#
 #  node_order  = V(g)$name (ISO3 codes, set by 06_geopolitical_attrs.R)
 #  rca_col     = selects the layer- and year-specific RCA column
 #  unga_mat    = dyadic UNGA similarity matrix, subset to graph node order
+#  dist_mat    = geographic distance matrix, reordered to match node_order
 # =============================================================================
 
-igraph_to_network <- function(g, node_geo, dyad_unga, layer_label, yr) {
+igraph_to_network <- function(g, node_geo, dyad_unga, dist_mat_log, layer_label, yr) {
 
   # node_order must be ISO3 codes for all node_geo and dyad_unga joins.
   # Graphs from the old pipeline use full country names — convert if needed.
@@ -170,7 +187,10 @@ igraph_to_network <- function(g, node_geo, dyad_unga, layer_label, yr) {
     unga_mat[dyad_sub$iso3_i[i], dyad_sub$iso3_j[i]] <- dyad_sub$unga_sim[i]
   }
 
-  list(net = net, unga_mat = unga_mat)
+  # Geographic distance matrix — reordered to match node_order
+  dist_mat <- dist_mat_log[node_order, node_order]
+
+  list(net = net, unga_mat = unga_mat, dist_mat = dist_mat)
 }
 
 # =============================================================================
@@ -179,17 +199,22 @@ igraph_to_network <- function(g, node_geo, dyad_unga, layer_label, yr) {
 
 message("Converting igraph objects to network objects ...")
 
-prep_be_22 <- igraph_to_network(g_be_22, node_geo, dyad_unga, "Backend",  2022)
-prep_fe_22 <- igraph_to_network(g_fe_22, node_geo, dyad_unga, "Frontend", 2022)
-prep_be_19 <- igraph_to_network(g_be_19, node_geo, dyad_unga, "Backend",  2019)
+# Standard (ITA-based) — used for BE M1–M3 and layer comparisons
+prep_be_22 <- igraph_to_network(g_be_22,      node_geo, dyad_unga, dist_matrix_log, "Backend",  2022)
+prep_fe_22 <- igraph_to_network(g_fe_22,      node_geo, dyad_unga, dist_matrix_log, "Frontend", 2022)
+
+# ERGM-specific (BTIGE-based) — used only for temporal comparison
+prep_be_22_ergm <- igraph_to_network(g_be_22_ergm, node_geo, dyad_unga, dist_matrix_log, "Backend", 2022)
+prep_be_19_ergm <- igraph_to_network(g_be_19_ergm, node_geo, dyad_unga, dist_matrix_log, "Backend", 2019)
 
 message("Network objects ready.")
 
 # Density check — high density signals potential non-identification
 for (item in list(
-  list("BE 2022", prep_be_22$net),
-  list("FE 2022", prep_fe_22$net),
-  list("BE 2019", prep_be_19$net)
+  list("BE 2022 (ITA)",        prep_be_22$net),
+  list("FE 2022",              prep_fe_22$net),
+  list("BE 2022 (BTIGE ergm)", prep_be_22_ergm$net),
+  list("BE 2019 (BTIGE ergm)", prep_be_19_ergm$net)
 )) {
   message(sprintf("%s density: %.3f", item[[1]], network::network.density(item[[2]])))
 }
@@ -209,57 +234,139 @@ ergm_ctrl <- ergm::control.ergm(
 # =============================================================================
 # 6. Fit ERGM models
 #
-#  BE 2022: two models — M1 structural baseline, M2 full.
-#  No intermediate M2 is reported: at ~88% density single nodecov terms
-#  produce non-varying MCMC statistics (see thesis Section 4.3).
+#  For each layer × year: M1 (structural), M2 (economic + gravity), M3 (full).
 #
-#  FE 2022: M1 structural + M2 full (same spec as BE for cross-layer comparison).
-#
-#  BE 2019: M2 full only (temporal comparison with BE 2022 M2).
-#  FE 2019 is not modelled: Taiwan is absent from the front-end 2019 network
-#  due to OECD BTIGE coverage limitations, making cross-year FE comparison
-#  unreliable.
+#  Layer comparison table uses M3 for both BE and FE 2022.
+#  Temporal comparison table uses M3 for BE 2019 and BE 2022 (BTIGE).
+#  FE 2019 is not modelled: Taiwan absent from front-end 2019 network
+#  due to OECD BTIGE coverage limitations.
 # =============================================================================
 
-message("\n=== Fitting BE 2022 M1 (structural baseline) ===")
+# ── BE 2022 (ITA-based) ───────────────────────────────────────────────────────
+
+# M1 — structural baseline: edges + mutual
+message("\n=== Fitting BE 2022 M1 — structural baseline ===")
 ergm_be22_m1 <- ergm::ergm(
   prep_be_22$net ~ edges + mutual,
   control = ergm_ctrl
 )
 
-message("\n=== Fitting BE 2022 M2 (full model) ===")
+# M2 — economic + gravity: edges + mutual + nodecov(rca) + nodecov(gdp) + nodecov(patents) + edgecov(dist)
+message("\n=== Fitting BE 2022 M2 — economic + gravity ===")
 ergm_be22_m2 <- ergm::ergm(
   prep_be_22$net ~ edges + mutual +
     nodecov("rca_log") +
     nodecov("gdp_log") +
     nodecov("patents_log") +
+    edgecov(prep_be_22$dist_mat),
+  control = ergm_ctrl
+)
+
+# M3 — full model: M2 + edgecov(unga)
+message("\n=== Fitting BE 2022 M3 — full model ===")
+ergm_be22_m3 <- ergm::ergm(
+  prep_be_22$net ~ edges + mutual +
+    nodecov("rca_log") +
+    nodecov("gdp_log") +
+    nodecov("patents_log") +
+    edgecov(prep_be_22$dist_mat) +
     edgecov(prep_be_22$unga_mat),
   control = ergm_ctrl
 )
 
-message("\n=== Fitting FE 2022 M1 (structural baseline) ===")
+# ── FE 2022 (ITA-based) ───────────────────────────────────────────────────────
+
+# M1 — structural baseline: edges + mutual
+message("\n=== Fitting FE 2022 M1 — structural baseline ===")
 ergm_fe22_m1 <- ergm::ergm(
   prep_fe_22$net ~ edges + mutual,
   control = ergm_ctrl
 )
 
-message("\n=== Fitting FE 2022 M2 (full model) ===")
+# M2 — economic + gravity: edges + mutual + nodecov(rca) + nodecov(gdp) + nodecov(patents) + edgecov(dist)
+message("\n=== Fitting FE 2022 M2 — economic + gravity ===")
 ergm_fe22_m2 <- ergm::ergm(
   prep_fe_22$net ~ edges + mutual +
     nodecov("rca_log") +
     nodecov("gdp_log") +
     nodecov("patents_log") +
+    edgecov(prep_fe_22$dist_mat),
+  control = ergm_ctrl
+)
+
+# M3 — full model: M2 + edgecov(unga)
+message("\n=== Fitting FE 2022 M3 — full model ===")
+ergm_fe22_m3 <- ergm::ergm(
+  prep_fe_22$net ~ edges + mutual +
+    nodecov("rca_log") +
+    nodecov("gdp_log") +
+    nodecov("patents_log") +
+    edgecov(prep_fe_22$dist_mat) +
     edgecov(prep_fe_22$unga_mat),
   control = ergm_ctrl
 )
 
-message("\n=== Fitting BE 2019 M2 (temporal comparison baseline) ===")
-ergm_be19_m2 <- ergm::ergm(
-  prep_be_19$net ~ edges + mutual +
+# ── BE 2019 — temporal comparison (BTIGE-consistent) ─────────────────────────
+
+# M1 — structural baseline: edges + mutual
+message("\n=== Fitting BE 2019 M1 — structural baseline (BTIGE Taiwan) ===")
+ergm_be19_m1_ergm <- ergm::ergm(
+  prep_be_19_ergm$net ~ edges + mutual,
+  control = ergm_ctrl
+)
+
+# M2 — economic + gravity: edges + mutual + nodecov(rca) + nodecov(gdp) + nodecov(patents) + edgecov(dist)
+message("\n=== Fitting BE 2019 M2 — economic + gravity (BTIGE Taiwan) ===")
+ergm_be19_m2_ergm <- ergm::ergm(
+  prep_be_19_ergm$net ~ edges + mutual +
     nodecov("rca_log") +
     nodecov("gdp_log") +
     nodecov("patents_log") +
-    edgecov(prep_be_19$unga_mat),
+    edgecov(prep_be_19_ergm$dist_mat),
+  control = ergm_ctrl
+)
+
+# M3 — full model: M2 + edgecov(unga)
+message("\n=== Fitting BE 2019 M3 — full model (BTIGE Taiwan) ===")
+ergm_be19_m3_ergm <- ergm::ergm(
+  prep_be_19_ergm$net ~ edges + mutual +
+    nodecov("rca_log") +
+    nodecov("gdp_log") +
+    nodecov("patents_log") +
+    edgecov(prep_be_19_ergm$dist_mat) +
+    edgecov(prep_be_19_ergm$unga_mat),
+  control = ergm_ctrl
+)
+
+# ── BE 2022 — temporal comparison (BTIGE-consistent) ─────────────────────────
+
+# M1 — structural baseline: edges + mutual
+message("\n=== Fitting BE 2022 M1 — structural baseline (BTIGE Taiwan) ===")
+ergm_be22_m1_ergm <- ergm::ergm(
+  prep_be_22_ergm$net ~ edges + mutual,
+  control = ergm_ctrl
+)
+
+# M2 — economic + gravity: edges + mutual + nodecov(rca) + nodecov(gdp) + nodecov(patents) + edgecov(dist)
+message("\n=== Fitting BE 2022 M2 — economic + gravity (BTIGE Taiwan) ===")
+ergm_be22_m2_ergm <- ergm::ergm(
+  prep_be_22_ergm$net ~ edges + mutual +
+    nodecov("rca_log") +
+    nodecov("gdp_log") +
+    nodecov("patents_log") +
+    edgecov(prep_be_22_ergm$dist_mat),
+  control = ergm_ctrl
+)
+
+# M3 — full model: M2 + edgecov(unga)
+message("\n=== Fitting BE 2022 M3 — full model (BTIGE Taiwan) ===")
+ergm_be22_m3_ergm <- ergm::ergm(
+  prep_be_22_ergm$net ~ edges + mutual +
+    nodecov("rca_log") +
+    nodecov("gdp_log") +
+    nodecov("patents_log") +
+    edgecov(prep_be_22_ergm$dist_mat) +
+    edgecov(prep_be_22_ergm$unga_mat),
   control = ergm_ctrl
 )
 
@@ -274,9 +381,10 @@ message("\nAll models fitted.")
 # =============================================================================
 
 message("\nRunning convergence diagnostics ...")
-ergm::mcmc.diagnostics(ergm_be22_m2)
-ergm::mcmc.diagnostics(ergm_fe22_m2)
-ergm::mcmc.diagnostics(ergm_be19_m2)
+ergm::mcmc.diagnostics(ergm_be22_m3)
+ergm::mcmc.diagnostics(ergm_fe22_m3)
+ergm::mcmc.diagnostics(ergm_be22_m3_ergm)
+ergm::mcmc.diagnostics(ergm_be19_m3_ergm)
 
 # =============================================================================
 # 8. Goodness of fit
@@ -287,106 +395,136 @@ ergm::mcmc.diagnostics(ergm_be19_m2)
 
 message("\nComputing goodness of fit ...")
 
-gof_be22 <- ergm::gof(ergm_be22_m2,
+gof_be22 <- ergm::gof(ergm_be22_m3,
                       GOF     = ~ idegree + odegree + distance + espartners,
                       control = ergm::control.gof.ergm(seed = 42))
-plot(gof_be22, main = "GoF — BE 2022 M2")
 
-gof_fe22 <- ergm::gof(ergm_fe22_m2,
+pdf(file.path(DIRS$figures, "fig_ergm_gof_be.pdf"), width = 10, height = 8)
+plot(gof_be22, main = "GoF — BE 2022 M3")
+dev.off()
+
+gof_fe22 <- ergm::gof(ergm_fe22_m3,
                       GOF     = ~ idegree + odegree + distance + espartners,
                       control = ergm::control.gof.ergm(seed = 42))
-plot(gof_fe22, main = "GoF — FE 2022 M2")
+
+pdf(file.path(DIRS$figures, "fig_ergm_gof_fe.pdf"), width = 10, height = 8)
+plot(gof_fe22, main = "GoF — FE 2022 M3")
+dev.off()
+
+message("Saved: fig_ergm_gof_be.pdf and fig_ergm_gof_fe.pdf")
 
 # =============================================================================
-# 9. Results tables — stargazer() to LaTeX
+# 9. Results tables — texreg (has a native extract.ergm method)
 # =============================================================================
 
-# ── TABLE A: Backend 2022 — M1 vs M2 ─────────────────────────────────────────
-sink("analyses/output/table_ergm_backend.tex")
-stargazer::stargazer(
-  ergm_be22_m1, ergm_be22_m2,
-  type          = "latex",
-  title         = "ERGM Results: Back-end Layer (2022)",
-  column.labels = c("BE-M1 (Structural)", "BE-M2 (Full)"),
-  dep.var.caption        = "P(trade tie = 1) — Back-end layer",
-  dep.var.labels.include = FALSE,
-  covariate.labels = c(
-    "Edges (baseline density)",
-    "Mutual (reciprocity)",
-    "RCA (log)",
-    "GDP (log)",
-    "Patents (log)",
-    "UNGA similarity (friendshoring)"
-  ),
-  keep.stat    = c("aic", "bic", "n"),
-  ci           = FALSE,
-  star.cutoffs = c(0.05, 0.01, 0.001),
-  notes = paste(
-    "No intermediate M2 reported: at $\\sim$88\\% density single",
-    "nodecov terms produce non-varying MCMC statistics.",
-    "GWESP omitted following Ou et al.\\ (2024)."
-  ),
-  header = FALSE
-)
-sink()
-message("Saved: analyses/output/table_ergm_backend.tex")
+library(texreg)
 
-# ── TABLE B: Layer comparison — BE M2 vs FE M2 (2022) ────────────────────────
-sink("analyses/output/table_ergm_layer.tex")
-stargazer::stargazer(
-  ergm_be22_m2, ergm_fe22_m2,
-  type          = "latex",
-  title         = "ERGM Results: Layer Comparison (2022)",
-  column.labels = c("Back-end (M2)", "Front-end (M2)"),
-  dep.var.caption        = "P(trade tie = 1)",
-  dep.var.labels.include = FALSE,
-  covariate.labels = c(
-    "Edges (baseline density)",
-    "Mutual (reciprocity)",
-    "RCA (log)",
-    "GDP (log)",
-    "Patents (log)",
-    "UNGA similarity (friendshoring)"
-  ),
-  keep.stat    = c("aic", "bic", "n"),
-  ci           = FALSE,
-  star.cutoffs = c(0.05, 0.01, 0.001),
-  notes        = "Identical specification enables direct cross-layer coefficient comparison.",
-  header       = FALSE
+# ── Coefficient name map (covers all possible term names across models) ────────
+ergm_coef_names <- c(
+  "edges"               = "Edges (baseline density)",
+  "mutual"              = "Mutual (reciprocity)",
+  "nodecov.rca_log"     = "RCA (log)",
+  "nodecov.gdp_log"     = "GDP (log)",
+  "nodecov.patents_log" = "Patents (log)"
 )
-sink()
-message("Saved: analyses/output/table_ergm_layer.tex")
 
-# ── TABLE C: Temporal comparison — BE 2019 vs BE 2022 ────────────────────────
-sink("analyses/output/table_ergm_temporal.tex")
-stargazer::stargazer(
-  ergm_be19_m2, ergm_be22_m2,
-  type          = "latex",
-  title         = "Back-end ERGM: Temporal Comparison (2019 vs.\\ 2022)",
-  column.labels = c("2019 (pre-disruption)", "2022 (post-CHIPS Act)"),
-  dep.var.caption        = "P(trade tie = 1) — Back-end layer",
-  dep.var.labels.include = FALSE,
-  covariate.labels = c(
-    "Edges (baseline density)",
-    "Mutual (reciprocity)",
-    "RCA (log)",
-    "GDP (log)",
-    "Patents (log)",
-    "UNGA similarity (friendshoring)"
-  ),
-  keep.stat    = c("aic", "bic", "n"),
-  ci           = FALSE,
-  star.cutoffs = c(0.05, 0.01, 0.001),
-  notes = paste(
-    "Identical specification across years enables direct coefficient comparison.",
-    "AIC/BIC not comparable across columns (different data).",
-    "Front-end temporal comparison omitted: Taiwan absent from 2019 front-end",
-    "network due to OECD BTIGE coverage limitations.",
-    "GWESP omitted following Ou et al.\\ (2024)."
-  ),
-  header = FALSE
+# Build the custom.coef.names vector for a list of models:
+# texreg needs names for every term that appears, including the dynamic edgecov.
+make_coef_names <- function(model_list) {
+  all_terms <- unique(unlist(lapply(model_list, function(m) names(coef(m)))))
+  nms <- ifelse(
+    all_terms %in% names(ergm_coef_names),
+    ergm_coef_names[all_terms],
+    ifelse(grepl("unga_mat",  all_terms), "UNGA similarity (dyadic)",
+    ifelse(grepl("dist_mat",  all_terms), "Geographic distance (log km)",
+           all_terms))
+  )
+  setNames(nms, all_terms)
+}
+
+# ── Shared texreg arguments ────────────────────────────────────────────────────
+texreg_common <- list(
+  stars        = c(0.001, 0.01, 0.05),
+  symbol       = "*",
+  booktabs     = TRUE,
+  use.packages = FALSE,     # do not emit \usepackage{} lines
+  dcolumn      = FALSE,
+  include.nobs = TRUE,
+  include.aic  = TRUE,
+  include.bic  = TRUE,
+  digits       = 3,
+  float.pos    = "H"        # [H] placement (requires float package in LaTeX)
 )
-sink()
-message("Saved: analyses/output/table_ergm_temporal.tex")
 
-message("\n12_ergm.R complete — 3 ERGM tables written to analyses/output/")
+# ── TABLE A: Backend 2022 — M1, M2, M3 ───────────────────────────────────────
+models_a <- list(
+  "BE-M1 (Structural)" = ergm_be22_m1,
+  "BE-M2 (Gravity)"    = ergm_be22_m2,
+  "BE-M3 (Full)"       = ergm_be22_m3
+)
+do.call(texreg::texreg, c(
+  list(
+    l                  = models_a,
+    file               = file.path(DIRS$tables, "table_ergm_backend.tex"),
+    caption            = "ERGM Results: Back-end Layer (2022) — Structural, Gravity, and Full Models",
+    label              = "tab:ergm-backend",
+    custom.coef.names  = make_coef_names(models_a),
+    custom.note        = paste(
+      "Standard errors in parentheses. %stars.",
+      "M1: structural baseline. M2: adds RCA (log), GDP (log), patents (log), and geographic distance.",
+      "M3: adds UNGA voting similarity.",
+      "GWESP omitted following Ou et al. (2024)."
+    )
+  ),
+  texreg_common
+))
+message("Saved: ", file.path(DIRS$tables, "table_ergm_backend.tex"))
+
+# ── TABLE B: Layer comparison — BE M3 vs FE M3 (2022) ────────────────────────
+models_b <- list(
+  "Back-end M3"  = ergm_be22_m3,
+  "Front-end M3" = ergm_fe22_m3
+)
+do.call(texreg::texreg, c(
+  list(
+    l                  = models_b,
+    file               = file.path(DIRS$tables, "table_ergm_layer.tex"),
+    caption            = "ERGM Results: Layer Comparison — Full Model (2022)",
+    label              = "tab:ergm-layer",
+    custom.coef.names  = make_coef_names(models_b),
+    custom.note        = paste(
+      "Standard errors in parentheses. %stars.",
+      "Identical M3 specification enables direct cross-layer coefficient comparison.",
+      "Sources: UN Comtrade; Taiwan ITA; OECD BTIGE. Author's calculations."
+    )
+  ),
+  texreg_common
+))
+message("Saved: ", file.path(DIRS$tables, "table_ergm_layer.tex"))
+
+# ── TABLE C: Temporal comparison — BE 2019 M3 vs BE 2022 M3 (BTIGE-consistent)
+models_c <- list(
+  "2019 M3 (pre-disruption)" = ergm_be19_m3_ergm,
+  "2022 M3 (post-CHIPS Act)" = ergm_be22_m3_ergm
+)
+do.call(texreg::texreg, c(
+  list(
+    l                  = models_c,
+    file               = file.path(DIRS$tables, "table_ergm_temporal.tex"),
+    caption            = "Back-end ERGM: Temporal Comparison (2019 vs.\\ 2022)",
+    label              = "tab:ergm-temporal",
+    custom.coef.names  = make_coef_names(models_c),
+    custom.note        = paste(
+      "Standard errors in parentheses. %stars.",
+      "Taiwan back-end edges use OECD BTIGE (CPA C261+C265) in both years",
+      "for measurement consistency; ITA HS6 data is 2022-only.",
+      "AIC/BIC not comparable across columns (different data).",
+      "Front-end temporal comparison omitted: Taiwan absent from 2019 front-end network.",
+      "GWESP omitted following Ou et al. (2024)."
+    )
+  ),
+  texreg_common
+))
+message("Saved: ", file.path(DIRS$tables, "table_ergm_temporal.tex"))
+
+message("\n12_ergm.R complete — 3 ERGM tables written to ", DIRS$tables)

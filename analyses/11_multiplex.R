@@ -14,18 +14,16 @@
 #   data/processed/centrality_all.rds   — produced by 09_centrality.R
 #
 # Outputs:
-#   analyses/output/table_multiplex_cor.tex   — Pearson r matrix (2022)
-#   analyses/output/table_multiplex_nor.tex   — Norway's cross-layer position
-#   analyses/output/table_multiplex_change.tex — centrality change 2019→2022
+#   thesis_project/analyses/output/table_multiplex_cor.tex    — Pearson r matrix (2022)
+#   thesis_project/analyses/output/table_multiplex_nor.tex    — Norway's cross-layer position
+#   thesis_project/analyses/output/table_multiplex_change.tex — centrality change 2019→2022
 #
 # Run from project root: Rscript analyses/11_multiplex.R
 
 library(dplyr)
 library(tidyr)
-library(knitr)
-library(kableExtra)
-
 source("config.R")
+source("analyses/table_helpers.R")
 
 # ── Guard: check inputs ───────────────────────────────────────────────────────
 cent_path <- file.path("data/processed", "centrality_all.rds")
@@ -34,7 +32,7 @@ if (!file.exists(cent_path)) {
   stop("centrality_all.rds not found. Run analyses/09_centrality.R first.")
 }
 
-dir.create("analyses/output", recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$tables, recursive = TRUE, showWarnings = FALSE)
 
 # ── Load centrality data ──────────────────────────────────────────────────────
 centrality_all <- readRDS(cent_path)
@@ -42,21 +40,6 @@ centrality_all <- readRDS(cent_path)
 message("Loaded centrality_all: ", nrow(centrality_all), " observations")
 message("Layers: ", paste(unique(centrality_all$layer), collapse = ", "))
 message("Years:  ", paste(unique(centrality_all$year),  collapse = ", "))
-
-# ── Helper: write a LaTeX table ───────────────────────────────────────────────
-write_tex <- function(tbl, path, caption, label) {
-  tex <- knitr::kable(
-    tbl,
-    format   = "latex",
-    booktabs = TRUE,
-    digits   = 3,
-    caption  = caption,
-    label    = label,
-    linesep  = ""
-  )
-  writeLines(as.character(tex), path)
-  message("Saved: ", path)
-}
 
 # =============================================================================
 # TABLE 1 — Inter-layer Pearson correlations (2022)
@@ -104,7 +87,7 @@ print(cor_table)
 
 write_tex(
   cor_table,
-  path    = "analyses/output/table_multiplex_cor.tex",
+  path    = file.path(DIRS$tables, "table_multiplex_cor.tex"),
   caption = paste0(
     "Inter-layer centrality correlations (Pearson $r$), frontend vs.\\ backend, 2022 ($n = ",
     nrow(multiplex_22), "$ countries). ",
@@ -154,7 +137,7 @@ print(norway_position)
 
 write_tex(
   norway_position,
-  path    = "analyses/output/table_multiplex_nor.tex",
+  path    = file.path(DIRS$tables, "table_multiplex_nor.tex"),
   caption = paste0(
     "Norway's centrality scores and within-network ranks across layers and years. ",
     "Rank 1 = most central. $n = ",
@@ -224,11 +207,13 @@ print(change_output)
 
 write_tex(
   change_output,
-  path    = "analyses/output/table_multiplex_change.tex",
+  path    = file.path(DIRS$tables, "table_multiplex_change.tex"),
   caption = paste0(
     "Largest changes in out-strength centrality, 2019--2022, by layer ",
     "(top 5 per layer plus Norway). ",
-    "$\\Delta$ = 2022 score minus 2019 score."
+    "$\\Delta$ = 2022 score minus 2019 score. ",
+    "Taiwan (TWN) is excluded from the 2019 baseline (ITA data is 2022-only; ",
+    "TWN had no edges in 2019 and does not appear in this table)."
   ),
   label   = "tab:multiplex-change"
 )

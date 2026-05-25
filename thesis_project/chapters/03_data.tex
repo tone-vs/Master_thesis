@@ -1,0 +1,55 @@
+% chapters/03_data.tex
+% Target: 500–600 words
+% ─────────────────────────────────────────────────────────────────────────────
+
+\section{Trade Data}
+\label{sec:data_trade}
+
+% UN Comtrade API v2 — bilateral HS6 flows for 2019 and 2022.
+% Flow threshold: bilateral flows < USD 1 million excluded (noise filter).
+% Country set: ~30 countries covering >85% of world semiconductor exports.
+
+[Write UN Comtrade section here]
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Taiwan: OECD BTIGE and ITA Supplementary Data}
+\label{sec:data_taiwan}
+
+% Taiwan absent from Comtrade — critical structural omission (~60% foundry revenue).
+% Back-end: OECD BTIGE dataset, CPA codes C261 and C265, 2019 and 2022.
+% Front-end: ITA (Taiwan Ministry of Economic Affairs) HS-level data for 2022.
+% 2019 front-end network therefore excludes Taiwan — noted as limitation.
+
+[Write Taiwan data section here]
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Node Attributes}
+\label{sec:data_nodes}
+
+% RCA: computed from same trade flows. RCA > 1 = comparative advantage.
+% R\&D intensity: OECD patent data by WIPO domain (2019--2022 average, log-normalised).
+% Economic size: GDP (World Bank / IMF).
+
+[Write node attributes section here]
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{Geopolitical Alignment Data}
+\label{sec:data_geo}
+
+% UN General Assembly voting similarity (Erik Voeten dataset).
+% Dyadic covariate — operationalises friendshoring in the ERGM.
+% Alliance membership (EU, NATO, Chip4, Wassenaar) hard-coded from official lists.
+
+[Write geopolitical data section here]
+
+% ─────────────────────────────────────────────────────────────────────────────
+\section{HS Code Classification and Network Layers}
+\label{sec:data_hs}
+
+% 21 HS codes split across two layers (see Annex~D for full list).
+% Front-end: polysilicon (280461), wafers (381800), fab equipment (848610--848690),
+%            wafer measurement (903082).
+% Back-end: discrete devices (854110--854190), ICs (854231--854239, 854290),
+%           semiconductor storage media (852351--852359).
+
+[Write HS code / layer classification section here]

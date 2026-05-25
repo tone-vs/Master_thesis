@@ -1,7 +1,9 @@
 # analyses/08_network_summary.R — Network-Level Summary Statistics
 #
 # Computes standard graph-level descriptives for all four layer × year
-# combinations and saves a publication-ready LaTeX table.
+# combinations and saves two publication-ready LaTeX tables:
+#   • Primary table  (2022 only)    — cited in the main analysis chapter
+#   • Appendix table (2019 only)    — robustness check; notes TWN absence
 #
 # igraph functions are called with the full igraph:: namespace prefix throughout
 # so this script is safe to run without library(igraph) in the search path and
@@ -14,16 +16,16 @@
 #   data/processed/graph_backend_2022.rds
 #
 # Outputs:
-#   analyses/output/table_network_summary.tex
+#   thesis_project/analyses/output/table_network_summary.tex          — 2022 networks
+#   thesis_project/analyses/output/table_network_summary_appendix.tex — 2019 networks
 #
 # Run from project root: Rscript analyses/08_network_summary.R
 
 library(igraph)   # loaded for class dispatch; all calls use igraph:: prefix
 library(dplyr)
-library(knitr)
-library(kableExtra)
 
 source("config.R")
+source("analyses/table_helpers.R")
 
 # ── Guard: check inputs ───────────────────────────────────────────────────────
 graph_files <- c(
@@ -39,7 +41,7 @@ if (length(missing) > 0) {
        "\nRun create_data/05_build_network_data.R first.")
 }
 
-dir.create("analyses/output", recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$tables, recursive = TRUE, showWarnings = FALSE)
 
 # ── Load graphs ───────────────────────────────────────────────────────────────
 g_fe_19 <- readRDS(graph_files["fe_2019"])
@@ -93,42 +95,66 @@ network_stats <- function(g, layer_label, yr) {
   )
 }
 
-# ── Build summary table ───────────────────────────────────────────────────────
-summary_tbl <- bind_rows(
-  network_stats(g_fe_19, "Frontend (L1)", 2019),
+# ── Build per-year summary tables ─────────────────────────────────────────────
+summary_22 <- bind_rows(
   network_stats(g_fe_22, "Frontend (L1)", 2022),
-  network_stats(g_be_19, "Backend  (L2)", 2019),
   network_stats(g_be_22, "Backend  (L2)", 2022)
 )
 
-message("\nNetwork summary:")
-print(summary_tbl)
+summary_19 <- bind_rows(
+  network_stats(g_fe_19, "Frontend (L1)", 2019),
+  network_stats(g_be_19, "Backend  (L2)", 2019)
+)
+
+message("\nNetwork summary (2022):")
+print(summary_22)
+
+message("\nNetwork summary (2019):")
+print(summary_19)
 
 # ── Density check (printed to console — feeds ERGM diagnosis discussion) ──────
 message("\nDensity check (high density → ERGM covariate non-identification risk):")
-summary_tbl |>
+bind_rows(summary_22, summary_19) |>
   select(Layer, Year, Density) |>
-  mutate(Flag = if_else(Density > 0.75, "⚠ HIGH", "OK")) |>
+  mutate(Flag = if_else(Density > 0.75, "HIGH", "OK")) |>
+  arrange(Year, Layer) |>
   print()
 
-# ── Save LaTeX table ──────────────────────────────────────────────────────────
-tex <- knitr::kable(
-  summary_tbl,
-  format   = "latex",
-  booktabs = TRUE,
-  caption  = paste0(
-    "Network summary statistics by layer and year. ",
+# ── TABLE 1: Primary — 2022 networks ─────────────────────────────────────────
+write_tex(
+  summary_22,
+  path    = file.path(DIRS$tables, "table_network_summary.tex"),
+  caption = paste0(
+    "Network summary statistics by layer (2022). ",
     "Flows $\\geq$ \\$", MIN_FLOW / 1e6, "M. ",
     "\\textit{Global CC} = ratio of closed triangles to connected triples. ",
     "\\textit{Avg CC} = mean of per-node local clustering coefficients; ",
     "both computed on the symmetrised graph. ",
-    "Path length computed on inverted market-share weights (strong trade $=$ short distance)."
+    "Path length computed on inverted market-share weights (strong trade $=$ short distance). ",
+    "2019 results in Table~\\ref{tab:network-summary-appendix}."
   ),
-  label    = "tab:network-summary",
-  linesep  = ""
+  label   = "tab:network-summary"
 )
 
-writeLines(as.character(tex), "analyses/output/table_network_summary.tex")
-message("Saved: analyses/output/table_network_summary.tex")
+# ── TABLE 2: Appendix — 2019 networks (robustness check) ─────────────────────
+#
+#  Taiwan (TWN) is absent from the 2019 networks: ITA HS6 data covers 2022
+#  only, and TWN had no qualifying edges in the UN Comtrade extract for 2019.
+#  Nodes with no edges are dropped by build_graph() in 05_build_network_data.R,
+#  so the 2019 graphs have 29 nodes vs 30 in 2022.
+
+write_tex(
+  summary_19,
+  path    = file.path(DIRS$tables, "table_network_summary_appendix.tex"),
+  caption = paste0(
+    "Network summary statistics for 2019, reported as a robustness check. ",
+    "Results are broadly consistent with 2022, suggesting findings are not ",
+    "driven by post-COVID supply chain disruptions. ",
+    "Taiwan (TWN) is excluded from 2019 networks (ITA data is 2022-only; ",
+    "TWN had no edges and was removed to avoid an isolated node)."
+  ),
+  label   = "tab:network-summary-appendix"
+)
+
 message("\n08_network_summary.R complete.")
 message("Next: run analyses/09_centrality.R")

@@ -51,15 +51,30 @@ if (!file.exists(comtrade_path)) {
   stop("Comtrade data not found. Run create_data/02_comtrade_pull.R first.")
 }
 
-comtrade_raw <- read_csv(comtrade_path, show_col_types = FALSE)
+comtrade_raw <- read_csv(comtrade_path, show_col_types = FALSE) |>
+  # hs_code is saved as numeric in the CSV; coerce to character before joining
+  # hs_layer_map so the layer assignment works correctly for all codes.
+  # Without this, codes like 811292 (gallium/germanium) arrive with layer = NA.
+  mutate(hs_code = as.character(as.integer(hs_code))) |>
+  left_join(hs_layer_map |> rename(layer_map = layer), by = "hs_code") |>
+  mutate(layer = dplyr::coalesce(layer, layer_map)) |>
+  select(-layer_map)
+
 message("Comtrade rows loaded: ", nrow(comtrade_raw))
 message("Comtrade years:  ", paste(sort(unique(comtrade_raw$year)), collapse = ", "))
 message("Comtrade layers: ", paste(unique(comtrade_raw$layer), collapse = ", "))
 
+n_na_layer <- sum(is.na(comtrade_raw$layer))
+if (n_na_layer > 0)
+  warning(n_na_layer, " Comtrade rows still have NA layer after fix — check hs_layer_map.")
+
 
 
 # 2. Load Taiwan data
-#    Produced by 03_taiwan_data.R — BTIGE (backend, both years) + ITA (frontend, 2022).
+#
+#    Taiwan 2022: ITA HS6 data for both layers (frontend_taiwan.csv,
+#    backend_taiwan.csv). Taiwan absent from 2019 networks — documented
+#    limitation. BTIGE available separately in taiwan_btige_only.rds for ERGM.
 
 
 taiwan_path <- file.path("data/processed", "taiwan_full.csv")
@@ -71,9 +86,10 @@ if (!file.exists(taiwan_path)) {
 taiwan_raw <- read_csv(taiwan_path, show_col_types = FALSE)
 message("Taiwan rows loaded: ", nrow(taiwan_raw))
 message("Taiwan years: ", paste(sort(unique(taiwan_raw$year)), collapse = ", "))
+message("Taiwan sources: ", paste(unique(taiwan_raw$source), collapse = ", "))
 
 taiwan_harmonised <- taiwan_raw |>
-  mutate(source = if_else(is.na(source), "OECD_BTIGE", source))
+  mutate(hs_code = as.character(hs_code))
 
 
 
@@ -83,13 +99,22 @@ taiwan_harmonised <- taiwan_raw |>
 
 edges_raw <- bind_rows(
   comtrade_raw      |> mutate(source = "Comtrade", hs_code = as.character(hs_code)),
-  taiwan_harmonised |> mutate(hs_code = as.character(hs_code))
+  taiwan_harmonised
 ) |>
   filter(
     !is.na(trade_value_usd),
     trade_value_usd >= MIN_FLOW,
     reporter_code   != partner_code    # drop self-loops
   )
+
+# Guard: BTIGE must not appear in the main edge list
+btige_in_main <- sum(edges_raw$hs_code == "BTIGE_C261_C265", na.rm = TRUE)
+if (btige_in_main > 0) {
+  stop(btige_in_main, " BTIGE rows found in main edge list. ",
+       "taiwan_full.csv must contain ITA data only. ",
+       "Re-run create_data/03_taiwan_data.R to regenerate taiwan_full.csv.")
+}
+message("BTIGE guard passed — zero BTIGE rows in main edge list.")
 
 # YEARS derived from the data, serves as a data integrity check
 YEARS <- sort(unique(edges_raw$year))
@@ -330,10 +355,15 @@ build_graph <- function(edge_df, node_df, layer_label, yr) {
   # called "name", igraph treats that column as V(g)$name regardless of
   # position — which causes full country names to override ISO3 codes.
   # Fix: rename "name" → "country_name" before passing to graph_from_data_frame(),
-  # then put iso3 first so it is unambiguously used as the vertex name.
+  # then put iso3 first so it is used as the vertex name.
   if ("name" %in% names(node_df)) {
     node_df <- dplyr::rename(node_df, country_name = name)
   }
+  # Only include nodes that appear in at least one edge for this year/layer.
+  # This prevents countries present in other years (e.g. TWN in 2022 ITA data)
+  # from entering the 2019 node set as isolated vertices.
+  active_nodes <- union(edge_df$from, edge_df$to)
+  node_df <- node_df |> dplyr::filter(iso3 %in% active_nodes)
   node_df <- node_df |> dplyr::select(iso3, dplyr::everything())
 
   g <- graph_from_data_frame(
@@ -404,4 +434,57 @@ for (yr in YEARS) {
 }
 message("node_attributes.csv — ", nrow(nodes), " countries, degree wide by year")
 message("edges_raw.rds, nodes.rds — for visualisation scripts")
-message("Next: run create_data/06_geopolitical_attrs.R")
+
+# =============================================================================
+# 12. ERGM edge list and ERGM-specific back-end graphs
+#
+#     For the temporal comparison (BE 2019 vs BE 2022), Taiwan back-end uses
+#     BTIGE in BOTH years for measurement consistency. The standard graphs
+#     (graph_backend_*.rds) use ITA for Taiwan 2022 and exclude Taiwan in 2019;
+#     these ERGM-specific graphs substitute BTIGE for Taiwan BE in both years.
+#
+#     graph_backend_2019_ergm.rds / graph_backend_2022_ergm.rds are for the
+#     ERGM temporal comparison only — DO NOT use for descriptive statistics.
+# =============================================================================
+
+btige_path <- file.path("data/processed", "taiwan_btige_only.rds")
+
+if (file.exists(btige_path)) {
+
+  taiwan_btige <- readRDS(btige_path)
+
+  # Build ERGM edge list: drop ITA Taiwan BE (both years), add BTIGE Taiwan BE
+  edges_raw_ergm <- bind_rows(
+    edges_raw |>
+      filter(!(layer == "layer2_backend" &
+               (reporter_code == "TWN" | partner_code == "TWN"))),
+    taiwan_btige
+  )
+
+  edge_list_ergm <- edges_raw_ergm |>
+    arrange(year, layer, reporter_code, partner_code)
+
+  write_csv(edge_list_ergm, file.path("data/processed", "edge_list_ergm.csv"))
+  message("Saved: edge_list_ergm.csv")
+  message("  Total rows: ", nrow(edge_list_ergm))
+  message("  BTIGE rows (Taiwan BE 2019 + 2022): ", nrow(taiwan_btige))
+  edge_list_ergm |> count(year, layer, source) |> print()
+
+  # Build ERGM-specific back-end graphs for both years
+  for (yr in YEARS) {
+    r_ergm <- process_year(yr, edges_raw_ergm)
+    g_be_ergm <- build_graph(r_ergm$backend, nodes, "layer2_backend", yr)
+    out_path <- file.path("data/processed",
+                          paste0("graph_backend_", yr, "_ergm.rds"))
+    saveRDS(g_be_ergm, out_path)
+    message("Saved: graph_backend_", yr, "_ergm.rds  (",
+            igraph::vcount(g_be_ergm), " nodes, ",
+            igraph::ecount(g_be_ergm), " edges)")
+  }
+
+} else {
+  message("taiwan_btige_only.rds not found — skipping ERGM edge list and graphs")
+  message("Run create_data/03_taiwan_data.R first.")
+}
+
+message("\nNext: run create_data/06_geopolitical_attrs.R")

@@ -1,4 +1,14 @@
 # create_data/02b_patch_811292.R
+#
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# DO NOT RUN if 02_comtrade_pull.R was executed after 811292 was added to
+# hs_layer1 in config.R. Running this patch on data that already contains
+# 811292 will produce duplicate rows in semiconductor_network.csv.
+#
+# This script is retained for reproducibility documentation only. It was a
+# one-time fix applied when 811292 was missing from the original pull.
+# !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+#
 # Targeted patch: add HS 811292 (gallium, germanium, hafnium, rhenium, vanadium)
 # to the existing semiconductor network data.
 #
@@ -7,7 +17,6 @@
 # the original pull. See OECD (2025) pp.21-22.
 #
 # API calls: ~30 reporters × 2 years = ~60 calls (~1 minute)
-# Run AFTER updating config.R to include 811292 in hs_layer1
 # ============================================================
 
 library(comtradr)

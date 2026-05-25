@@ -14,21 +14,24 @@
 #   data/processed/graph_backend_2022.rds
 #
 # Outputs:
-#   data/processed/communities.rds             — named list of igraph community objects
-#   analyses/output/table_community_summary.tex — modularity + N communities by network
-#   analyses/output/table_community_norway.tex  — Norway's community membership
-#   analyses/output/table_community_2022.tex    — full community structure (2022)
+#   data/processed/communities.rds                — named list of igraph community objects
+#   data/processed/community_alliance_overlap.csv — BE 2022 community × alliance shares
+#   thesis_project/analyses/output/table_community_summary.tex — modularity + N communities by network
+#   thesis_project/analyses/output/table_community_norway.tex  — Norway's community membership
+#   thesis_project/analyses/output/table_community_2022.tex    — full community structure (2022),
+#                                                                 with nato_share and eu_share columns
+#                                                                 added from community_alliance_overlap
 #
 # Run from project root: Rscript analyses/10_community_detection.R
 
 library(igraph)       # loaded for class dispatch; all calls use igraph:: prefix
 library(dplyr)
 library(tidyr)
-library(knitr)
-library(kableExtra)
 library(countrycode)  # needed for vertex-name normalisation fallback
+library(kableExtra)
 
 source("config.R")
+source("analyses/table_helpers.R")
 
 # ── Guard: check inputs ───────────────────────────────────────────────────────
 graph_files <- c(
@@ -44,7 +47,7 @@ if (length(missing) > 0) {
        "\nRun create_data/05_build_network_data.R first.")
 }
 
-dir.create("analyses/output", recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$tables, recursive = TRUE, showWarnings = FALSE)
 
 # ── Load graphs ───────────────────────────────────────────────────────────────
 g_fe_19 <- readRDS(graph_files["fe_2019"])
@@ -124,6 +127,37 @@ set.seed(42); comm_be_22 <- igraph::cluster_louvain(g_be_22_ud, weights = igraph
 
 message("Louvain complete.")
 
+# Community-alliance overlap — feeds into Table B.8 (Annex B)
+# Computed for both 2022 layers so no NAs appear in table_community_2022.tex.
+# CSV retains BE 2022 only (standalone reference); join below covers both layers.
+
+alliance_shares <- function(g, comm, layer_label) {
+  data.frame(
+    Layer     = layer_label,
+    iso3      = igraph::V(g)$iso3,
+    community = igraph::membership(comm),
+    nato      = igraph::V(g)$nato,
+    eu_member = igraph::V(g)$eu_member
+  ) |>
+    group_by(Layer, community) |>
+    summarise(
+      n          = n(),
+      nato_share = round(mean(nato), 2),
+      eu_share   = round(mean(eu_member), 2),
+      .groups    = "drop"
+    )
+}
+
+community_alliance_fe <- alliance_shares(g_fe_22, comm_fe_22, "Frontend (L1)")
+community_alliance_be <- alliance_shares(g_be_22, comm_be_22, "Backend (L2)")
+community_alliance    <- community_alliance_be   # BE-only alias kept for CSV output
+
+message("Community-alliance overlap (back-end 2022):")
+print(community_alliance_be)
+readr::write_csv(community_alliance_be |> select(-Layer),
+                 file.path("data/processed", "community_alliance_overlap.csv"))
+message("Saved: community_alliance_overlap.csv")
+
 # Console summary
 for (label_comm in list(
   list("FRONTEND 2019", comm_fe_19, g_fe_19),
@@ -153,20 +187,6 @@ communities <- list(
 
 saveRDS(communities, file.path("data/processed", "communities.rds"))
 message("\nSaved: data/processed/communities.rds")
-
-# ── Helper: write a LaTeX table ───────────────────────────────────────────────
-write_tex <- function(tbl, path, caption, label) {
-  tex <- knitr::kable(
-    tbl,
-    format   = "latex",
-    booktabs = TRUE,
-    caption  = caption,
-    label    = label,
-    linesep  = ""
-  )
-  writeLines(as.character(tex), path)
-  message("Saved: ", path)
-}
 
 # ── TABLE 1 — High-level community summary (2022 primary; 2019 robustness) ────
 #
@@ -211,7 +231,7 @@ print(comm_summary)
 
 write_tex(
   comm_summary_2022,
-  path    = "analyses/output/table_community_summary.tex",
+  path    = file.path(DIRS$tables, "table_community_summary.tex"),
   caption = paste0(
     "Louvain community detection results by layer (2022). ",
     "Weights = bilateral market share. Seed = 42. ",
@@ -222,7 +242,7 @@ write_tex(
 
 write_tex(
   comm_summary_2019,
-  path    = "analyses/output/table_community_summary_robustness.tex",
+  path    = file.path(DIRS$tables, "table_community_summary_robustness.tex"),
   caption = paste0(
     "Louvain community detection results by layer (2019, robustness check). ",
     "Weights = bilateral market share. Seed = 42."
@@ -281,7 +301,7 @@ print(norway_community)
 
 write_tex(
   norway_community,
-  path    = "analyses/output/table_community_norway.tex",
+  path    = file.path(DIRS$tables, "table_community_norway.tex"),
   caption = paste0(
     "Norway's Louvain community membership by layer (2022). ",
     "2019 robustness results in Table~\\ref{tab:community-norway-robustness}."
@@ -291,7 +311,7 @@ write_tex(
 
 write_tex(
   norway_community_2019,
-  path    = "analyses/output/table_community_norway_robustness.tex",
+  path    = file.path(DIRS$tables, "table_community_norway_robustness.tex"),
   caption = "Norway's Louvain community membership by layer (2019, robustness check).",
   label   = "tab:community-norway-robustness"
 )
@@ -326,20 +346,27 @@ make_comm_df <- function(comm, g, layer_label) {
 comm_2022 <- bind_rows(
   make_comm_df(comm_fe_22, g_fe_22, "Frontend (L1)"),
   make_comm_df(comm_be_22, g_be_22, "Backend (L2)")
-)
+) |>
+  # Attach alliance shares for both layers — no NAs
+  left_join(
+    bind_rows(community_alliance_fe, community_alliance_be) |>
+      select(Layer, community, nato_share, eu_share),
+    by = c("Layer", "Community" = "community")
+  )
 
 message("\nFull community structure (2022):")
 print(comm_2022)
 
 write_tex(
   comm_2022,
-  path    = "analyses/output/table_community_2022.tex",
+  path    = file.path(DIRS$tables, "table_community_2022.tex"),
   caption = paste0(
     "Full Louvain community structure (2022). ",
     "Communities sorted by size within each layer. ",
     "Modularity is network-level (same for all rows within a layer)."
   ),
-  label   = "tab:community-2022"
+  label   = "tab:community-2022",
+  escape  = FALSE
 )
 
 message("\n10_community_detection.R complete.")
