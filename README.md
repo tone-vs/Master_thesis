@@ -1,6 +1,6 @@
 # Mapping Norway in the Global Semiconductor Value Chain
 
-Master's thesis — UC3M / NHH, 2025.  
+Master's thesis — UC3M, 2025.  
 Supervisor: [Francisco Villamil]
 
 ## Project overview
