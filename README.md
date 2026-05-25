@@ -25,7 +25,6 @@ thesis_project/               LaTeX source for the thesis (Overleaf-compatible)
   plots/output/               ← R scripts write .pdf/.png figures HERE (committed)
   main.tex                    Master LaTeX document
 config.R                      Shared constants (YEARS, HS codes, DIRS paths)
-thesis_analysis.Rmd           R Markdown notebook (optional; knit after pipeline)
 ```
 
 All R scripts write their outputs directly into `thesis_project/analyses/output/`
