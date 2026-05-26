@@ -352,7 +352,8 @@ comm_2022 <- bind_rows(
     bind_rows(community_alliance_fe, community_alliance_be) |>
       select(Layer, community, nato_share, eu_share),
     by = c("Layer", "Community" = "community")
-  )
+  ) |>
+  rename("NATO share" = nato_share, "EU share" = eu_share)
 
 message("\nFull community structure (2022):")
 print(comm_2022)

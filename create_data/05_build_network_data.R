@@ -25,8 +25,9 @@
 #                         codes. Normalised within each year so years are
 #                         comparable despite price changes. Used for strength
 #                         centrality and edge thickness in visualisations.
-#   trade_value_usd     — raw summed USD; retained for diagnostics and as
-#                         log-transformed covariate in ERGM.
+#   trade_value_usd     — raw summed USD; retained for diagnostics only.
+#                       weight_log = log1p(trade_value_usd) computed but
+#                       not used as an ERGM covariate in final specifications.
 #
 # Run from project root: Rscript create_data/05_build_network_data.R
 

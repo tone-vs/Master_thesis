@@ -15,7 +15,6 @@
 #
 # Outputs:
 #   thesis_project/analyses/output/table_multiplex_cor.tex    — Pearson r matrix (2022)
-#   thesis_project/analyses/output/table_multiplex_nor.tex    — Norway's cross-layer position
 #   thesis_project/analyses/output/table_multiplex_change.tex — centrality change 2019→2022
 #
 # Run from project root: Rscript analyses/11_multiplex.R
@@ -97,57 +96,7 @@ write_tex(
 )
 
 # =============================================================================
-# TABLE 2 — Norway's cross-layer position (both years)
-#
-#  Shows Norway's rank and raw score in each measure, each layer, each year.
-#  Rank is within-layer-year (1 = most central).
-# =============================================================================
-
-add_rank <- function(df, measure) {
-  df |>
-    group_by(layer, year) |>
-    mutate(!!paste0("rank_", measure) := rank(-!!sym(measure), ties.method = "min")) |>
-    ungroup()
-}
-
-cent_ranked <- centrality_all |>
-  add_rank("strength_out") |>
-  add_rank("betweenness") |>
-  add_rank("eigenvector")
-
-norway_position <- cent_ranked |>
-  filter(iso3 == FOCAL_COUNTRY) |>
-  mutate(
-    across(c(strength_out, betweenness, eigenvector), ~round(.x, 4))
-  ) |>
-  arrange(layer, year) |>
-  select(
-    Layer    = layer,
-    Year     = year,
-    `Str. out`     = strength_out,
-    `Rank str.`    = rank_strength_out,
-    `Betweenness`  = betweenness,
-    `Rank btwn.`   = rank_betweenness,
-    `Eigenvector`  = eigenvector,
-    `Rank eigen.`  = rank_eigenvector
-  )
-
-message("\nNorway's cross-layer position:")
-print(norway_position)
-
-write_tex(
-  norway_position,
-  path    = file.path(DIRS$tables, "table_multiplex_nor.tex"),
-  caption = paste0(
-    "Norway's centrality scores and within-network ranks across layers and years. ",
-    "Rank 1 = most central. $n = ",
-    n_distinct(centrality_all$iso3), "$ countries per network."
-  ),
-  label   = "tab:multiplex-nor"
-)
-
-# =============================================================================
-# TABLE 3 — Centrality change 2019 → 2022
+# TABLE 2 — Centrality change 2019 → 2022
 #
 #  For each country, computes the absolute and relative change in out-strength
 #  and betweenness across years within each layer. Norway highlighted.
