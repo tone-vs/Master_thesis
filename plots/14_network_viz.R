@@ -18,8 +18,6 @@
 #   data/processed/communities.rds         — named list of community objects
 #
 # Outputs (PDF, no screen display):
-#   thesis_project/plots/output/net_fe_2019.pdf           — frontend 2019 (robustness)
-#   thesis_project/plots/output/net_be_2019.pdf           — backend 2019 (robustness)
 #   thesis_project/plots/output/net_combined_2022.pdf     — patchwork 2-panel (2022 only)
 #   thesis_project/plots/output/net_combined_2019.pdf     — patchwork 2-panel (2019 robustness)
 #
@@ -113,7 +111,7 @@ notaiwan_CAPTION <- "Sources: UN Comtrade. Taiwan (TWN) excluded — ITA data 20
 # The layout is not stored as a separate object — ggraph computes it
 # when the plot is built by ggsave().
 
-network_plot <- function(g, caption_str = NET_CAPTION) {
+network_plot <- function(g) {
   set.seed(42)
   ggraph(g, layout = "fr") +
     geom_edge_link(
@@ -153,9 +151,6 @@ network_plot <- function(g, caption_str = NET_CAPTION) {
         override.aes = list(shape = 21, size = 5, colour = "grey20")
       )
     ) +
-    labs(
-      caption  = caption_str
-    ) +
     theme_graph(base_family = "sans") +
     theme(legend.position = "right")
 }
@@ -164,18 +159,9 @@ network_plot <- function(g, caption_str = NET_CAPTION) {
 
 p_fe_22 <- network_plot(g_fe_22)
 p_be_22 <- network_plot(g_be_22)
-p_fe_19 <- network_plot(g_fe_19, caption_str = notaiwan_CAPTION)
-p_be_19 <- network_plot(g_be_19, caption_str = notaiwan_CAPTION)
+p_fe_19 <- network_plot(g_fe_19)
+p_be_19 <- network_plot(g_be_19)
 
-# ── Save individual plots ─────────────────────────────────────────────────────
-
-ggsave(file.path(DIRS$figures, "net_fe_2019.pdf"), plot = p_fe_19,
-       width = 11, height = 9, device = "pdf")
-message("Saved: ", file.path(DIRS$figures, "net_fe_2019.pdf"))
-
-ggsave(file.path(DIRS$figures, "net_be_2019.pdf"), plot = p_be_19,
-       width = 11, height = 9, device = "pdf")
-message("Saved: ", file.path(DIRS$figures, "net_be_2019.pdf"))
 
 # ── Combined 2022 (side-by-side, thesis figure) ───────────────────────────────
 #
@@ -200,7 +186,7 @@ p_combined_19 <- (
     p_be_19
 ) +
   plot_annotation(
-    caption = "Sources: UN Comtrade. Taiwan (TWN) excluded from 2019 networks (ITA data 2022 only). igraph + ggraph. Author's calculations."
+    caption = notaiwan_CAPTION
   )
 
 ggsave(file.path(DIRS$figures, "net_combined_2019.pdf"), 

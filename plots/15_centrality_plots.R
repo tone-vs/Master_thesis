@@ -70,7 +70,7 @@ scatter_cent <- function(df, layer_colour) {
   ggplot(df, aes(x = eigenvector, y = betweenness,
                  label = iso3, colour = is_norway, size = is_norway)) +
     geom_point(alpha = 0.8) +
-    geom_text_repel(size = 3, max.overlaps = 20, seed = 42) +
+    geom_text_repel(size = 3, max.overlaps = 50, seed = 42) +
     scale_colour_manual(
       values = c("FALSE" = layer_colour, "TRUE" = COL_NOR_RANK),
       guide  = "none"
@@ -161,7 +161,7 @@ message("Saved: ", file.path(DIRS$figures, "cent_norway_change.pdf"))
 #   Norway is highlighted; bars sorted by out-strength.
 # =============================================================================
 
-dotplot_rank <- function(cent_df, layer_label, layer_colour) {
+dotplot_rank <- function(cent_df, layer_colour) {
   cent_df |>
     arrange(desc(strength_out)) |>
     mutate(

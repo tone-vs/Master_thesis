@@ -38,14 +38,17 @@
 #   data/processed/graph_backend_2022_ergm.rds       — BTIGE Taiwan (BE 2022 temporal)
 #   data/processed/graph_backend_2019_ergm.rds       — BTIGE Taiwan (BE 2019 temporal)
 #   data/processed/node_geopolitical.rds
-#   data/processed/dyad_unga_similarity.rds
-#   data/processed/unga_similarity_matrix.rds
+#   data/processed/node_geopolitical_2019.csv  — 2019 GDP for temporal comparison
+#   data/processed/dyad_unga_similarity.csv    — penalised UNGA similarity, 2017–2019
+#   data/processed/unga_similarity_matrix.rds  — shared across all ERGM specifications
 #   data/processed/dist_matrix_log.rds
 #
 # Outputs:
 #   thesis_project/analyses/output/table_ergm_backend.tex    — BE M1, M2, M3 (2022)
 #   thesis_project/analyses/output/table_ergm_layer.tex      — BE M3 vs FE M3 (2022)
 #   thesis_project/analyses/output/table_ergm_temporal.tex   — BE 2019 M3 vs BE 2022 M3
+#   thesis_project/plots/output/fig_ergm_gof_be.pdf          — GoF diagnostics BE 2022 M3
+#   thesis_project/plots/output/fig_ergm_gof_fe.pdf          — GoF diagnostics FE 2022 M3
 #
 # Run from project root: Rscript analyses/12_ergm.R
 # WARNING: MCMC estimation is slow — allow 30–90 min on a laptop.
@@ -79,13 +82,17 @@ if (length(missing) > 0) {
        "\nRun create_data/05_build_network_data.R first.")
 }
 
-geo_path    <- file.path("data/processed", "node_geopolitical.rds")
-unga_d_path <- file.path("data/processed", "dyad_unga_similarity.rds")
-unga_m_path <- file.path("data/processed", "unga_similarity_matrix.rds")
-dist_path   <- file.path("data/processed", "dist_matrix_log.rds")
+geo_path      <- file.path("data/processed", "node_geopolitical.rds")
+unga_d_path   <- file.path("data/processed", "dyad_unga_similarity.csv")
+unga_m_path   <- file.path("data/processed", "unga_similarity_matrix.rds")
+dist_path     <- file.path("data/processed", "dist_matrix_log.rds")
+gdp_2019_path <- file.path("data/processed", "node_geopolitical_2019.csv")
 
 for (p in c(geo_path, unga_d_path, unga_m_path, dist_path)) {
   if (!file.exists(p)) stop(basename(p), " not found. Run create_data/06_geopolitical_attrs.R first.")
+}
+if (!file.exists(gdp_2019_path)) {
+  stop("node_geopolitical_2019.csv not found. Run create_data/06_geopolitical_attrs.R first.")
 }
 
 # Load igraph objects
@@ -94,10 +101,17 @@ g_be_22      <- readRDS(graph_files["be_2022"])
 g_be_22_ergm <- readRDS(ergm_graph_files["be_2022_ergm"])  # temporal comparison
 g_be_19_ergm <- readRDS(ergm_graph_files["be_2019_ergm"])  # temporal comparison
 
-# Load geopolitical attributes, UNGA data, and geographic distance matrix
+# Load geopolitical attributes, UNGA data, and geographic distance matrix.
+# UNGA similarity uses penalised formula over votes 2017–2019 (the most recent
+# complete three-year window in the unvotes package; data ends in 2019).
+# A single shared dyad_unga is used for all ERGM specifications.
 node_geo        <- readRDS(geo_path)
-dyad_unga       <- readRDS(unga_d_path)
+dyad_unga       <- readr::read_csv(unga_d_path, show_col_types = FALSE)
 dist_matrix_log <- readRDS(dist_path)
+
+# Load 2019 GDP for temporal ERGM comparison (year-specific values for BE 2019)
+gdp_2019 <- readr::read_csv(gdp_2019_path, show_col_types = FALSE) |>
+  select(iso3, gdp_log_2019 = gdp_log)
 
 message("igraph objects and geopolitical data loaded.")
 
@@ -111,18 +125,26 @@ library(dplyr)
 library(countrycode)  # needed for vertex-name normalisation fallback
 
 source("config.R")
-dir.create(DIRS$tables, recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$tables,   recursive = TRUE, showWarnings = FALSE)
+dir.create(DIRS$figures,  recursive = TRUE, showWarnings = FALSE)
 
 # =============================================================================
 # 3. igraph → network conversion
 #
-#  node_order  = V(g)$name (ISO3 codes, set by 06_geopolitical_attrs.R)
-#  rca_col     = selects the layer- and year-specific RCA column
-#  unga_mat    = dyadic UNGA similarity matrix, subset to graph node order
-#  dist_mat    = geographic distance matrix, reordered to match node_order
+#  node_order   = V(g)$name (ISO3 codes, set by 06_geopolitical_attrs.R)
+#  rca_col      = selects the layer- and year-specific RCA column
+#  unga_mat     = dyadic UNGA similarity matrix, subset to graph node order;
+#                 built from dyad_unga (penalised similarity, votes 2017–2019,
+#                 shared across all ERGM specifications)
+#  dist_mat     = geographic distance matrix, reordered to match node_order
+#  gdp_override = optional data frame with columns iso3 and gdp_log_2019;
+#                 when provided, replaces nd$gdp_log for the gdp_log vertex
+#                 attribute. Used for the BE 2019 temporal comparison only
+#                 so that GDP values match the network year.
 # =============================================================================
 
-igraph_to_network <- function(g, node_geo, dyad_unga, dist_mat_log, layer_label, yr) {
+igraph_to_network <- function(g, node_geo, dyad_unga, dist_mat_log,
+                               layer_label, yr, gdp_override = NULL) {
 
   # node_order must be ISO3 codes for all node_geo and dyad_unga joins.
   # Graphs from the old pipeline use full country names — convert if needed.
@@ -167,8 +189,13 @@ igraph_to_network <- function(g, node_geo, dyad_unga, dist_mat_log, layer_label,
 
   network::set.vertex.attribute(net, "rca_log",
     as.numeric(tidyr::replace_na(log1p(rca_vals), 0)))
+  gdp_vals <- if (!is.null(gdp_override)) {
+    gdp_override$gdp_log_2019[match(node_order, gdp_override$iso3)]
+  } else {
+    nd$gdp_log
+  }
   network::set.vertex.attribute(net, "gdp_log",
-    as.numeric(tidyr::replace_na(nd$gdp_log, 0)))
+    as.numeric(tidyr::replace_na(gdp_vals, 0)))
   network::set.vertex.attribute(net, "patents_log",
     as.numeric(tidyr::replace_na(
       igraph::vertex_attr(g, "patents_log"), 0
@@ -176,7 +203,8 @@ igraph_to_network <- function(g, node_geo, dyad_unga, dist_mat_log, layer_label,
   network::set.vertex.attribute(net, "iso3",
     as.character(tidyr::replace_na(node_order, "UNK")))
 
-  # Dyadic UNGA similarity matrix — padded to graph node set
+  # Dyadic UNGA similarity matrix — padded to graph node set.
+  # Uses the shared dyad_unga (penalised formula, votes 2017–2019) for all models.
   unga_mat <- matrix(0,
     nrow = length(node_order), ncol = length(node_order),
     dimnames = list(node_order, node_order)
@@ -204,8 +232,13 @@ prep_be_22 <- igraph_to_network(g_be_22,      node_geo, dyad_unga, dist_matrix_l
 prep_fe_22 <- igraph_to_network(g_fe_22,      node_geo, dyad_unga, dist_matrix_log, "Frontend", 2022)
 
 # ERGM-specific (BTIGE-based) — used only for temporal comparison
-prep_be_22_ergm <- igraph_to_network(g_be_22_ergm, node_geo, dyad_unga, dist_matrix_log, "Backend", 2022)
-prep_be_19_ergm <- igraph_to_network(g_be_19_ergm, node_geo, dyad_unga, dist_matrix_log, "Backend", 2019)
+# 2022 temporal — uses 2022 GDP (default; no override needed)
+prep_be_22_ergm <- igraph_to_network(g_be_22_ergm, node_geo, dyad_unga,
+                                      dist_matrix_log, "Backend", 2022)
+# 2019 temporal — uses 2019 GDP to match the network year
+prep_be_19_ergm <- igraph_to_network(g_be_19_ergm, node_geo, dyad_unga,
+                                      dist_matrix_log, "Backend", 2019,
+                                      gdp_override = gdp_2019)
 
 message("Network objects ready.")
 
@@ -473,7 +506,12 @@ do.call(texreg::texreg, c(
       "Standard errors in parentheses. %stars.",
       "M1: structural baseline. M2: adds RCA (log), GDP (log), patents (log), and geographic distance.",
       "M3: adds UNGA voting similarity.",
-      "GWESP omitted following Ou et al. (2024)."
+      "Trade data: UN Comtrade; Taiwan ITA.",
+      "GDP: World Bank WDI.",
+      "Patents: OECD patent database.",
+      "Geographic distance: CEPII GeoDist.",
+      "UNGA voting similarity: United Nations General Assembly Voting Data.",
+      "Author's calculations."
     )
   ),
   texreg_common
@@ -495,7 +533,7 @@ do.call(texreg::texreg, c(
     custom.note        = paste(
       "Standard errors in parentheses. %stars.",
       "Identical M3 specification enables direct cross-layer coefficient comparison.",
-      "Sources: UN Comtrade; Taiwan ITA; OECD BTIGE. Author's calculations."
+      "Sources: UN Comtrade; Taiwan ITA. Author's calculations."
     )
   ),
   texreg_common
@@ -517,10 +555,8 @@ do.call(texreg::texreg, c(
     custom.note        = paste(
       "Standard errors in parentheses. %stars.",
       "Taiwan back-end edges use OECD BTIGE (CPA C261+C265) in both years",
-      "for measurement consistency; ITA HS6 data is 2022-only.",
-      "AIC/BIC not comparable across columns (different data).",
-      "Front-end temporal comparison omitted: Taiwan absent from 2019 front-end network.",
-      "GWESP omitted following Ou et al. (2024)."
+      "for measurement consistency; ITA HS6 data is 2022-only and is excluded here.",
+      "Front-end temporal comparison omitted: Taiwan absent from 2019 front-end network."
     )
   ),
   texreg_common
