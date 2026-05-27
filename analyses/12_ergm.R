@@ -459,7 +459,7 @@ texreg_common <- list(
 # ── TABLE A: Backend 2022 — M1, M2, M3 ───────────────────────────────────────
 models_a <- list(
   "BE-M1 (Structural)" = ergm_be22_m1,
-  "BE-M2 (Gravity)"    = ergm_be22_m2,
+  "BE-M2"    = ergm_be22_m2,
   "BE-M3 (Full)"       = ergm_be22_m3
 )
 do.call(texreg::texreg, c(
@@ -482,8 +482,8 @@ message("Saved: ", file.path(DIRS$tables, "table_ergm_backend.tex"))
 
 # ── TABLE B: Layer comparison — BE M3 vs FE M3 (2022) ────────────────────────
 models_b <- list(
-  "Back-end M3"  = ergm_be22_m3,
-  "Front-end M3" = ergm_fe22_m3
+  "Back-end M3 (2022)"  = ergm_be22_m3,
+  "Front-end M3 (2022)" = ergm_fe22_m3
 )
 do.call(texreg::texreg, c(
   list(
@@ -504,8 +504,8 @@ message("Saved: ", file.path(DIRS$tables, "table_ergm_layer.tex"))
 
 # ── TABLE C: Temporal comparison — BE 2019 M3 vs BE 2022 M3 (BTIGE-consistent)
 models_c <- list(
-  "2019 M3 (pre-disruption)" = ergm_be19_m3_ergm,
-  "2022 M3 (post-CHIPS Act)" = ergm_be22_m3_ergm
+  "2019 M3 (baseline)" = ergm_be19_m3_ergm,
+  "2022 M3" = ergm_be22_m3_ergm
 )
 do.call(texreg::texreg, c(
   list(

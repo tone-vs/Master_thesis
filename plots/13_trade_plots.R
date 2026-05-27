@@ -39,8 +39,6 @@ CAPTION_FIG <- "Sources: UN Comtrade; Taiwan ITA. Author's calculations."
 
 theme_nor <- theme_minimal(base_size = 12) +
   theme(
-    plot.title        = element_text(face = "bold", size = 13),
-    plot.subtitle     = element_text(colour = "grey40", size = 10),
     strip.text        = element_text(face = "bold"),
     legend.position   = "bottom",
     panel.grid.minor  = element_blank()
@@ -54,7 +52,7 @@ theme_nor <- theme_minimal(base_size = 12) +
 #   Bars coloured by layer. Top 8 products per direction.
 # =============================================================================
 
-make_hs_panel <- function(direction_col, panel_title) {
+make_hs_panel <- function(direction_col) {
   edges_all |>
     filter(.data[[direction_col]] == FOCAL_COUNTRY,
            year == 2022, !is.na(layer), source != "OECD_BTIGE") |>
@@ -78,22 +76,20 @@ make_hs_panel <- function(direction_col, panel_title) {
       expand = expansion(mult = c(0, 0.28)),
       labels = label_number(suffix = "M", prefix = "$", scale = 1)
     ) +
-    labs(title = panel_title, x = "USD million", y = NULL) +
+    labs(x = "USD million", y = NULL) +
     theme_nor +
     theme(axis.text.y = element_text(size = 7.5, lineheight = 1.1),
           panel.grid.major.y = element_blank())
 }
 
-p_hs_exp <- make_hs_panel("reporter_code", "Exports")
-p_hs_imp <- make_hs_panel("partner_code",  "Imports")
+p_hs_exp <- make_hs_panel("reporter_code")
+p_hs_imp <- make_hs_panel("partner_code")
 
 fig_hs_combined <- (p_hs_exp | p_hs_imp) +
   plot_layout(guides = "collect") &
   plot_annotation(
-    title   = "Norway's top semiconductor products by HS code (2022)",
     caption = CAPTION_FIG,
     theme   = theme(
-      plot.title   = element_text(size = 12, face = "bold"),
       plot.caption = element_text(size = 8,  colour = "grey50")
     )
   ) &
@@ -146,7 +142,7 @@ p_exp <- ggplot(nor_exp_partners,
   scale_fill_manual(values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
                     name = "Layer") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
-  labs(title = "Export destinations (2022)", x = "USD million", y = NULL) +
+  labs(x = "USD million", y = NULL) +
   theme_nor
 
 p_imp <- ggplot(nor_imp_partners,
@@ -161,17 +157,14 @@ p_imp <- ggplot(nor_imp_partners,
   scale_fill_manual(values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
                     name = "Layer") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
-  labs(title = "Import sources (2022)", x = "USD million", y = NULL) +
+  labs(x = "USD million", y = NULL) +
   theme_nor
 
 fig_partners <- (p_exp | p_imp) +
   plot_layout(guides = "collect") &
   plot_annotation(
-    title   = "Norway's top semiconductor trade partners by layer (2022)",
     caption = CAPTION_FIG,
     theme   = theme(
-      plot.title    = element_text(size = 12, face = "bold"),
-      plot.subtitle = element_text(size = 9,  colour = "grey40"),
       plot.caption  = element_text(size = 8,  colour = "grey50")
     )
   ) &

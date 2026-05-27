@@ -103,9 +103,8 @@ g_be_19 <- decorate(g_be_19, communities$be_2019, centrality_all, "Back-end",  2
 message("Graph attributes decorated.")
 
 # ── Shared theme ──────────────────────────────────────────────────────────────
-NET_CAPTION <- "Sources: UN Comtrade; Taiwan ITA. igraph + ggraph. Author's calculations."
+NET_CAPTION      <- "Sources: UN Comtrade; Taiwan ITA. igraph + ggraph. Author's calculations."
 notaiwan_CAPTION <- "Sources: UN Comtrade. Taiwan (TWN) excluded — ITA data 2022 only. igraph + ggraph. Author's calculations."
-SUBTITLE    <- "Node size = out-strength  │  Fill = Louvain community │  Edge thickness = trade volume "
 
 # ── Core plot function ────────────────────────────────────────────────────────
 #
@@ -114,7 +113,7 @@ SUBTITLE    <- "Node size = out-strength  │  Fill = Louvain community │  Edg
 # The layout is not stored as a separate object — ggraph computes it
 # when the plot is built by ggsave().
 
-network_plot <- function(g, title_str, caption_str = NET_CAPTION) {
+network_plot <- function(g, caption_str = NET_CAPTION) {
   set.seed(42)
   ggraph(g, layout = "fr") +
     geom_edge_link(
@@ -155,8 +154,6 @@ network_plot <- function(g, title_str, caption_str = NET_CAPTION) {
       )
     ) +
     labs(
-      title    = title_str,
-      subtitle = SUBTITLE,
       caption  = caption_str
     ) +
     theme_graph(base_family = "sans") +
@@ -165,12 +162,10 @@ network_plot <- function(g, title_str, caption_str = NET_CAPTION) {
 
 # ── Build all four individual plots ──────────────────────────────────────────
 
-p_fe_22 <- network_plot(g_fe_22, "Front-end Layer — 2022")
-p_be_22 <- network_plot(g_be_22, "Back-end Layer — 2022")
-p_fe_19 <- network_plot(g_fe_19, "Front-end Layer — 2019 (Robustness)", 
-                        caption_str = notaiwan_CAPTION)
-p_be_19 <- network_plot(g_be_19, "Back-end Layer — 2019 (Robustness)",  
-                        caption_str = notaiwan_CAPTION)
+p_fe_22 <- network_plot(g_fe_22)
+p_be_22 <- network_plot(g_be_22)
+p_fe_19 <- network_plot(g_fe_19, caption_str = notaiwan_CAPTION)
+p_be_19 <- network_plot(g_be_19, caption_str = notaiwan_CAPTION)
 
 # ── Save individual plots ─────────────────────────────────────────────────────
 
@@ -192,7 +187,6 @@ p_combined_22 <- (
   p_be_22
 ) +
   plot_annotation(
-    title   = "Global Semiconductor Trade Networks — 2022",
     caption = NET_CAPTION
   )
 
@@ -206,7 +200,6 @@ p_combined_19 <- (
     p_be_19
 ) +
   plot_annotation(
-    title   = "Global Semiconductor Trade Networks — 2019 (Robustness)",
     caption = "Sources: UN Comtrade. Taiwan (TWN) excluded from 2019 networks (ITA data 2022 only). igraph + ggraph. Author's calculations."
   )
 

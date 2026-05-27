@@ -16,13 +16,15 @@
 
 
 YEARS              <- c(2019, 2022)
+YEAR_GDP      <- 2022   # used by 06_geopolitical_attrs.R — primary analysis year
+YEAR_GDP_2019 <- 2019   # used for temporal ERGM comparison only
 MIN_FLOW           <- 1e6
 COVERAGE_THRESHOLD <- 0.99
 FOCAL_COUNTRY      <- "NOR"
 FORCED_INCLUSIONS <- c(
   "NOR", "SWE", "FIN", "DNK"       # focal + Nordic comparators
 )
-YEAR_GDP           <- 2022   # used by 06_geopolitical_attrs.R
+
 
 hs_layer1 <- c("280461","381800","811292","848610","848620","848630","848640","848690","903082")
 hs_layer2 <- c("854110","854121","854129","854130","854160","854190",

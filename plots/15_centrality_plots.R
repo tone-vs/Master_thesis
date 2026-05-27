@@ -66,7 +66,7 @@ cent_be_22 <- centrality_all |> filter(layer == "Back-end",  year == 2022)
 #   to other well-connected countries (influence).
 # =============================================================================
 
-scatter_cent <- function(df, layer_colour, title_str) {
+scatter_cent <- function(df, layer_colour) {
   ggplot(df, aes(x = eigenvector, y = betweenness,
                  label = iso3, colour = is_norway, size = is_norway)) +
     geom_point(alpha = 0.8) +
@@ -82,7 +82,6 @@ scatter_cent <- function(df, layer_colour, title_str) {
     scale_x_continuous(trans = "log1p") +
     scale_y_continuous(trans = "log1p") +
     labs(
-      title = title_str,
       x     = "Eigenvector centrality (influence)",
       y     = "Betweenness centrality (brokerage)"
     ) +
@@ -90,14 +89,11 @@ scatter_cent <- function(df, layer_colour, title_str) {
     theme(panel.grid.minor = element_blank())
 }
 
-p_fe_sc <- scatter_cent(cent_fe_22, COL_FE, "Front-end (2022)")
-p_be_sc <- scatter_cent(cent_be_22, COL_BE, "Back-end (2022)")
+p_fe_sc <- scatter_cent(cent_fe_22, COL_FE)
+p_be_sc <- scatter_cent(cent_be_22, COL_BE)
 
 p_scatter_2022 <- (p_fe_sc | p_be_sc) +
   plot_annotation(
-    title    = "Brokerage vs Influence — Global Semiconductor Trade Networks (2022)",
-    subtitle = paste0("Norway (", FOCAL_COUNTRY, ") highlighted in red. ",
-                      "High betweenness = structural broker."),
     caption  = CAPTION_SRC
   )
 
@@ -142,8 +138,6 @@ p_norway_change <- ggplot(norway_change,
     name   = "Layer"
   ) +
   labs(
-    title    = paste0("Norway's Centrality: 2019 → 2022"),
-    subtitle = "Pre-COVID baseline (2019) vs post-disruption (2022)",
     x        = "Year",
     y        = "Centrality score",
     caption  = CAPTION_SRC
@@ -191,7 +185,6 @@ dotplot_rank <- function(cent_df, layer_label, layer_colour) {
     ) +
     scale_x_continuous(expand = expansion(mult = c(0, 0.15))) +
     labs(
-      title   = paste0(layer_label, " (2022)"),
       x       = "Out-strength (market-share weighted)",
       y       = NULL,
       caption = NULL
@@ -211,8 +204,6 @@ p_cent_ranks <- p_dot_fe22 | p_dot_be22
 
 p_cent_ranks <- p_cent_ranks +
   plot_annotation(
-    title   = "Out-strength centrality rankings — all 30 countries (2022)",
-    subtitle = paste0(FOCAL_COUNTRY, " highlighted in amber."),
     caption = CAPTION_SRC   # ← single caption here only
   )
 

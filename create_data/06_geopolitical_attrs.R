@@ -1,8 +1,14 @@
 # 06_geopolitical_attrs.R — Node and Dyadic Geopolitical and Geographical Distance Attributes
-# Purpose: Attach GDP, alliance membership (NATO/EU), and UN General Assembly
+# Purpose: Attach GDP, and UN General Assembly
 #          voting similarity to the node and dyad tables produced by
 #          05_build_network_data.R.
 #          Build two matrices, one for political alignment and one for geographical distance 
+# # 2. Alliance / bloc membership — coded manually
+#    Source: NATO (nato.int), EU (europa.eu) membership as of 2022
+#    Note: SWE and FIN formally joined NATO after 2022.
+#    USE: community composition table (10_community_detection.R) only.
+#    NOT used as ERGM covariates — geopolitical alignment in ERGMs is
+#    operationalised through UNGA voting similarity (dyadic, section 3 below).
 #
 # Inputs:  data/processed/node_attributes.csv — produced by 05_build_network_data.R
 #          World Bank WDI API (GDP)
@@ -10,7 +16,8 @@
 #
 # Outputs:
 #   data/processed/node_geopolitical.csv
-#   data/processed/dyad_unga_similarity.csv
+#   data/processed/node_geopolitical_2019.csv  — 2019 GDP for temporal ERGM comparison
+#   data/processed/dyad_unga_similarity.csv    — UNGA penalised similarity, votes 2017–2019
 #   data/processed/unga_similarity_matrix.rds
 #   data/processed/node_geopolitical.rds
 #   data/processed/dyad_unga_similarity.rds
@@ -19,6 +26,7 @@
 # Run from project root: Rscript create_data/06_geopolitical_attrs.R
 
 library(dplyr)
+library(tibble)
 library(tidyr)
 library(readr)
 library(lubridate)
@@ -53,13 +61,16 @@ message("Country set loaded: ", length(iso3_set), " countries")
 
 
 # 1. GDP — World Bank via WDI package
-#    If node_geopolitical.csv already exists, pull GDP from it to skip the API call.
+#    2022 GDP: primary measure used in all ERGM specifications
+#    2019 GDP: used only for the temporal ERGM 2019 model
+#    Cache: if node_geopolitical.csv exists, load 2022 GDP from it to skip API call.
+#    Taiwan not in World Bank — added manually from IMF World Economic Outlook.
 
 geo_csv_path <- file.path("data/processed", "node_geopolitical.csv")
 
 if (file.exists(geo_csv_path)) {
-  message("node_geopolitical.csv found — loading GDP from CSV (skipping WDI API call).")
-  gdp <- read_csv(geo_csv_path, show_col_types = FALSE) |>
+  message("node_geopolitical.csv found — loading 2022 GDP from CSV (skipping WDI API call).")
+  gdp_2022 <- read_csv(geo_csv_path, show_col_types = FALSE) |>
     select(iso3, gdp_usd, gdp_pc_usd, gdp_log, gdp_pc_log)
 } else {
   gdp_raw <- WDI(
@@ -70,28 +81,61 @@ if (file.exists(geo_csv_path)) {
     end       = YEAR_GDP,
     extra     = FALSE
   )
-  gdp <- gdp_raw |>
+  gdp_2022 <- gdp_raw |>
     filter(year == YEAR_GDP) |>
     select(iso3 = iso3c, gdp_usd, gdp_pc_usd)
-
-  # Taiwan is not in the World Bank database — add manually.
-  # Source: IMF World Economic Outlook 2022 (GDP in current USD)
-  taiwan_gdp <- tibble(
+  taiwan_gdp_2022 <- tibble(
     iso3       = "TWN",
     gdp_usd    = 761.43e9,
     gdp_pc_usd = 32315.0
   )
-  gdp <- bind_rows(gdp, taiwan_gdp) |>
+  gdp_2022 <- bind_rows(gdp_2022, taiwan_gdp_2022) |>
     mutate(
       gdp_log    = log1p(gdp_usd),
       gdp_pc_log = log1p(gdp_pc_usd)
     )
 }
 
-message("GDP rows matched: ", nrow(gdp), " / ", length(iso3_set))
-message("Norway GDP (USD): ", gdp |> filter(iso3 == "NOR") |> pull(gdp_usd))
+message("2022 GDP rows matched: ", nrow(gdp_2022), " / ", length(iso3_set))
+message("Norway 2022 GDP (USD): ", gdp_2022 |> filter(iso3 == "NOR") |> pull(gdp_usd))
 
+# -- 2019 GDP (temporal ERGM comparison only) ----------------------------------
+# Cache: if node_geopolitical_2019.csv exists, load from it to skip API call.
 
+geo_2019_csv_path <- file.path("data/processed", "node_geopolitical_2019.csv")
+
+if (file.exists(geo_2019_csv_path)) {
+  message("node_geopolitical_2019.csv found — loading 2019 GDP from CSV (skipping WDI API call).")
+  gdp_2019 <- read_csv(geo_2019_csv_path, show_col_types = FALSE) |>
+    select(iso3, gdp_usd, gdp_pc_usd, gdp_log, gdp_pc_log)
+} else {
+  gdp_raw_2019 <- WDI(
+    country   = iso3_set,
+    indicator = c(gdp_usd    = "NY.GDP.MKTP.CD",
+                  gdp_pc_usd = "NY.GDP.PCAP.CD"),
+    start     = YEAR_GDP_2019,
+    end       = YEAR_GDP_2019,
+    extra     = FALSE
+  )
+  gdp_2019 <- gdp_raw_2019 |>
+    filter(year == YEAR_GDP_2019) |>
+    select(iso3 = iso3c, gdp_usd, gdp_pc_usd)
+  taiwan_gdp_2019 <- tibble(
+    iso3       = "TWN",
+    gdp_usd    = 613.51e9,
+    gdp_pc_usd = NA_real_   # unavailable from IMF World Economic Outlook for 2019
+  )
+  gdp_2019 <- bind_rows(gdp_2019, taiwan_gdp_2019) |>
+    mutate(
+      gdp_log    = log1p(gdp_usd),
+      gdp_pc_log = log1p(gdp_pc_usd)
+    )
+  write_csv(gdp_2019, geo_2019_csv_path)
+  message("Saved: node_geopolitical_2019.csv")
+}
+
+message("2019 GDP rows matched: ", nrow(gdp_2019), " / ", length(iso3_set))
+message("Norway 2019 GDP (USD): ", gdp_2019 |> filter(iso3 == "NOR") |> pull(gdp_usd))
 
 # 2. Alliance / bloc membership — coded manually
 #    Source: NATO (nato.int), EU (europa.eu) membership as of 2022
@@ -140,10 +184,28 @@ alliance_df <- tribble(
 
 
 # 3. UN General Assembly voting similarity — dyadic covariate
-#    If dyad_unga_similarity.csv already exists, load from it (no recomputation needed).
+#    Formula: penalised similarity = ((agreements - disagreements) / n_mutual + 1) / 2
+#      agreements    = both vote yes, or both vote no
+#      disagreements = one votes yes and the other votes no
+#      n_mutual      = votes where both countries cast a non-abstention vote
+#    Abstentions are excluded from agreements and disagreements entirely.
+#
+#    A single similarity score is computed using votes from 2017–2019, which is
+#    the most recent complete three-year window available in the unvotes package
+#    (data ends in 2019). This single score is shared across all ERGM models —
+#    both 2022 specifications and the 2019 temporal comparison.
+#    Cache: if dyad_unga_similarity.csv exists, load from it; otherwise recompute.
+
+# 3. UN General Assembly voting similarity — dyadic covariate
+#    Formula: penalised similarity = ((agreements - disagreements) / n_mutual + 1) / 2
+#      agreements    = both vote yes, or both vote no (non-abstain)
+#      disagreements = one votes yes and the other votes no
+#      n_mutual      = votes where both countries cast a non-abstention vote
+#    Votes 2017-2019 used (unvotes package data ends at 2019).
+#    Single score used for all ERGM specifications.
+#    If dyad_unga_similarity.csv already exists, load from it to skip recomputation.
 
 unga_csv_path <- file.path("data/processed", "dyad_unga_similarity.csv")
-
 if (file.exists(unga_csv_path)) {
   message("dyad_unga_similarity.csv found — loading UNGA similarity from CSV.")
   dyad_unga <- read_csv(unga_csv_path, show_col_types = FALSE)
@@ -151,11 +213,11 @@ if (file.exists(unga_csv_path)) {
   unga_similarity <- un_votes |>
     inner_join(un_roll_calls |> select(rcid, date), by = "rcid") |>
     mutate(year = year(date)) |>
-    filter(year %in% 2019:2022) |>
-    mutate(iso3 = countrycode(country_code, "iso2c", "iso3c")) |>
+    filter(year %in% 2017:2019) |>
+    mutate(iso3 = countrycode(country_code, "iso2c", "iso3c",
+                              custom_match = c("YU" = NA_character_))) |>
     filter(iso3 %in% iso3_set) |>
     select(rcid, iso3, vote)
-
   vote_pairs <- unga_similarity |>
     rename(iso3_i = iso3, vote_i = vote) |>
     inner_join(
@@ -164,23 +226,24 @@ if (file.exists(unga_csv_path)) {
       relationship = "many-to-many"
     ) |>
     filter(iso3_i != iso3_j)
-
   dyad_unga <- vote_pairs |>
     group_by(iso3_i, iso3_j) |>
     summarise(
-      n_votes  = n(),
-      n_agree  = sum(vote_i == vote_j, na.rm = TRUE),
-      unga_sim = n_agree / n_votes,
-      .groups  = "drop"
+      n_agree    = sum(vote_i == vote_j & vote_i != "abstain", na.rm = TRUE),
+      n_disagree = sum(
+        (vote_i == "yes" & vote_j == "no") |
+          (vote_i == "no"  & vote_j == "yes"), na.rm = TRUE
+      ),
+      n_mutual   = sum(vote_i != "abstain" & vote_j != "abstain", na.rm = TRUE),
+      unga_sim   = ((n_agree - n_disagree) / n_mutual + 1) / 2,
+      .groups    = "drop"
     )
 }
-
 message("UNGA dyads: ", nrow(dyad_unga))
-message("Norway–USA alignment:   ",
+message("Norway-USA alignment:   ",
         dyad_unga |> filter(iso3_i == "NOR", iso3_j == "USA") |> pull(unga_sim) |> round(3))
-message("Norway–China alignment: ",
+message("Norway-China alignment: ",
         dyad_unga |> filter(iso3_i == "NOR", iso3_j == "CHN") |> pull(unga_sim) |> round(3))
-
 
 
 # 4. Combine node-level attributes
@@ -188,7 +251,7 @@ message("Norway–China alignment: ",
 
 node_geo <- nodes |>
   select(iso3, name, is_focal) |>
-  left_join(gdp,         by = "iso3") |>
+  left_join(gdp_2022,    by = "iso3") |>
   left_join(alliance_df, by = "iso3") |>
   mutate(
     nato      = replace_na(nato,      0L),
@@ -252,7 +315,12 @@ attach_node_attrs <- function(g, node_geo, node_attrs) {
 
   V(g)$iso3        <- iso3_vec
   V(g)$gdp_usd     <- geo_matched$gdp_usd
+  # gdp_log uses 2022 values (from gdp_2022) for all standard graphs.
+  # 2019 GDP is attached separately in analyses/12_ergm.R via gdp_override
+  # in igraph_to_network() for the temporal ERGM comparison only.
   V(g)$gdp_log     <- geo_matched$gdp_log
+  # Alliance membership attached for community composition table only.
+  # Not used in ERGM model specifications.
   V(g)$nato        <- geo_matched$nato
   V(g)$eu_member   <- geo_matched$eu_member
   V(g)$rca_fe_2019 <- att_matched$rca_fe_2019
@@ -280,39 +348,46 @@ message("Geopolitical attributes attached and graphs re-saved")
 
 # -----------------------------------------------------------------------------
 # 6b. UNGA similarity matrix
+#     Built from dyad_unga (votes 2017–2019; single shared score for all models).
+#     Padded to the full graph node set; countries without UNGA data receive NA.
 # -----------------------------------------------------------------------------
 
-iso3_ordered <- sort(unique(c(dyad_unga$iso3_i, dyad_unga$iso3_j)))
+build_unga_matrix <- function(dyad_unga, all_iso3) {
+  iso3_ordered <- sort(unique(c(dyad_unga$iso3_i, dyad_unga$iso3_j)))
+  unga_raw <- dyad_unga |>
+    select(iso3_i, iso3_j, unga_sim) |>
+    pivot_wider(
+      id_cols     = iso3_i,
+      names_from  = iso3_j,
+      values_from = unga_sim,
+      values_fill = NA_real_
+    ) |>
+    tibble::column_to_rownames("iso3_i") |>
+    as.matrix()
+  unga_raw <- unga_raw[iso3_ordered, iso3_ordered]
 
-unga_matrix_raw <- dyad_unga |>
-  pivot_wider(
-    id_cols     = iso3_i,
-    names_from  = iso3_j,
-    values_from = unga_sim,
-    values_fill = NA_real_
-  ) |>
-  tibble::column_to_rownames("iso3_i") |>
-  as.matrix()
-
-unga_matrix_raw <- unga_matrix_raw[iso3_ordered, iso3_ordered]
+  mat <- matrix(
+    NA_real_,
+    nrow = length(all_iso3),
+    ncol = length(all_iso3),
+    dimnames = list(all_iso3, all_iso3)
+  )
+  common <- intersect(all_iso3, iso3_ordered)
+  mat[common, common] <- unga_raw[common, common]
+  list(mat = mat, n_common = length(common))
+}
 
 all_iso3 <- sort(V(graphs[["backend_2022"]])$iso3)
 
-unga_matrix <- matrix(
-  NA_real_,
-  nrow = length(all_iso3),
-  ncol = length(all_iso3),
-  dimnames = list(all_iso3, all_iso3)
-)
-
-common <- intersect(all_iso3, iso3_ordered)
-unga_matrix[common, common] <- unga_matrix_raw[common, common]
+result      <- build_unga_matrix(dyad_unga, all_iso3)
+unga_matrix <- result$mat
 
 saveRDS(unga_matrix, file.path("data/processed", "unga_similarity_matrix.rds"))
 
 message("UNGA matrix: ", nrow(unga_matrix), "x", ncol(unga_matrix),
-        " (", length(common), " countries with UNGA data)")
+        " (", result$n_common, " countries with UNGA data)")
 message("NAs in matrix: ", sum(is.na(unga_matrix)))
+
 
 # Save key R objects for downstream scripts
 saveRDS(node_geo,  file.path("data/processed", "node_geopolitical.rds"))
@@ -333,7 +408,7 @@ dist_matrix_log <- dist_cepii |>
     names_from  = iso_d,
     values_from = distw
   ) |>
-  column_to_rownames("iso_o") |>
+  tibble::column_to_rownames("iso_o") |>
   as.matrix()
 
 storage.mode(dist_matrix_log) <- "numeric"
@@ -350,7 +425,6 @@ saveRDS(
   file.path("data/processed", "dist_matrix_log.rds")
 )
 message("Distance matrix: ", nrow(dist_matrix_log), "x", ncol(dist_matrix_log))
-message("NOR-DEU (log km, expect ~7.6): ", round(dist_matrix_log["NOR", "DEU"], 3))
-message("NOR-SGP (log km, expect ~9.1): ", round(dist_matrix_log["NOR", "SGP"], 3))
 
-message("Pipeline complete. Saved: node_geopolitical.rds, dyad_unga_similarity.rds, dist_matrix_log.rds\nRun plots/13_trade_plots.R")
+
+message("Pipeline complete. Saved: node_geopolitical.rds, dyad_unga_similarity.rds, dist_matrix_log.rds\nRun analyses/07_descriptive_trade.R")
