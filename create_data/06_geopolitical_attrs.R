@@ -6,7 +6,6 @@
 # # 2. Alliance / bloc membership — coded manually
 #    Source: NATO (nato.int), EU (europa.eu) membership as of 2022
 #    Note: SWE and FIN formally joined NATO after 2022.
-#    USE: community composition table (10_community_detection.R) only.
 #    NOT used as ERGM covariates — geopolitical alignment in ERGMs is
 #    operationalised through UNGA voting similarity (dyadic, section 3 below).
 #

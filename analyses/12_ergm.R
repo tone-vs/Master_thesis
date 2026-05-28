@@ -446,6 +446,25 @@ dev.off()
 
 message("Saved: fig_ergm_gof_be.pdf and fig_ergm_gof_fe.pdf")
 
+# GoF for temporal comparison models (BTIGE-based)
+gof_be19_ergm <- ergm::gof(ergm_be19_m3_ergm,
+                           GOF     = ~ idegree + odegree + distance + espartners,
+                           control = ergm::control.gof.ergm(seed = 42))
+
+pdf(file.path(DIRS$figures, "fig_ergm_gof_be19.pdf"), width = 10, height = 8)
+plot(gof_be19_ergm, main = "GoF — BE 2019 M3 (BTIGE)")
+dev.off()
+
+gof_be22_ergm <- ergm::gof(ergm_be22_m3_ergm,
+                           GOF     = ~ idegree + odegree + distance + espartners,
+                           control = ergm::control.gof.ergm(seed = 42))
+
+pdf(file.path(DIRS$figures, "fig_ergm_gof_be22_btige.pdf"), width = 10, height = 8)
+plot(gof_be22_ergm, main = "GoF — BE 2022 M3 (BTIGE)")
+dev.off()
+
+message("Saved: fig_ergm_gof_be19.pdf and fig_ergm_gof_be22_btige.pdf")
+
 # =============================================================================
 # 9. Results tables — texreg (has a native extract.ergm method)
 # =============================================================================
@@ -486,7 +505,7 @@ texreg_common <- list(
   include.aic  = TRUE,
   include.bic  = TRUE,
   digits       = 3,
-  float.pos    = "H"        # [H] placement (requires float package in LaTeX)
+  float.pos    = "H"      
 )
 
 # ── TABLE A: Backend 2022 — M1, M2, M3 ───────────────────────────────────────

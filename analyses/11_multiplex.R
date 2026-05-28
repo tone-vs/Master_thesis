@@ -14,8 +14,9 @@
 #   data/processed/centrality_all.rds   — produced by 09_centrality.R
 #
 # Outputs:
-#   thesis_project/analyses/output/table_multiplex_cor.tex    — Pearson r matrix (2022)
-#   thesis_project/analyses/output/table_multiplex_change.tex — centrality change 2019→2022
+#   thesis_project/analyses/output/table_multiplex_cor.tex        — Pearson r matrix (2022)
+#   thesis_project/analyses/output/table_multiplex_change.tex     — centrality change 2019→2022
+#   thesis_project/analyses/output/table_multiplex_crosslayer.tex — cross-layer rankings (2022)
 #
 # Run from project root: Rscript analyses/11_multiplex.R
 
@@ -165,6 +166,62 @@ write_tex(
     "TWN had no edges in 2019 and does not appear in this table)."
   ),
   label   = "tab:multiplex-change"
+)
+
+# =============================================================================
+# TABLE 3 — Cross-layer centrality rankings (2022)
+#
+#  Top 5 countries by average eigenvector centrality across front-end and
+#  back-end, plus Norway (always included). Sorted descending by average
+#  eigenvector. Reveals which countries hold central positions in both layers.
+# =============================================================================
+
+crosslayer_wide <- centrality_all |>
+  filter(year == 2022) |>
+  select(iso3, is_norway, layer, strength_out, eigenvector) |>
+  pivot_wider(
+    id_cols     = c(iso3, is_norway),
+    names_from  = layer,
+    values_from = c(strength_out, eigenvector)
+  ) |>
+  rename(
+    `FE Out-strength` = `strength_out_Front-end`,
+    `BE Out-strength` = `strength_out_Back-end`,
+    `FE Eigenvector`  = `eigenvector_Front-end`,
+    `BE Eigenvector`  = `eigenvector_Back-end`
+  ) |>
+  mutate(
+    avg_eigen = (`FE Eigenvector` + `BE Eigenvector`) / 2,
+    Country   = countrycode::countrycode(iso3, "iso3c", "country.name")
+  )
+
+crosslayer_top5  <- crosslayer_wide |> slice_max(avg_eigen, n = 5)
+crosslayer_nor   <- crosslayer_wide |> filter(is_norway)
+crosslayer_22    <- bind_rows(crosslayer_top5, crosslayer_nor) |>
+  distinct(iso3, .keep_all = TRUE) |>
+  arrange(desc(avg_eigen)) |>
+  select(
+    ISO3              = iso3,
+    Country,
+    `FE Out-strength`,
+    `BE Out-strength`,
+    `FE Eigenvector`,
+    `BE Eigenvector`
+  ) |>
+  mutate(across(where(is.double), ~round(.x, 4)))
+
+message("\nCross-layer centrality rankings (2022, top 5 + Norway):")
+print(crosslayer_22)
+
+write_tex(
+  crosslayer_22,
+  path    = file.path(DIRS$tables, "table_multiplex_crosslayer.tex"),
+  caption = paste0(
+    "Cross-layer out-strength and eigenvector centrality, 2022 ",
+    "(top 5 countries by average eigenvector centrality across layers, plus Norway). ",
+    "Sorted by average eigenvector centrality (descending)."
+  ),
+  label   = "tab:multiplex-crosslayer"
 )
 
 message("\n11_multiplex.R complete.")
