@@ -47,7 +47,7 @@ centrality_all <- readRDS(inputs["centrality"])
 message("Inputs loaded: ", nrow(centrality_all), " centrality observations.")
 
 # ── Shared constants ──────────────────────────────────────────────────────────
-COL_FE     <- "#2C7BB6"   # frontend blue (matches Rmd)
+COL_FE     <- "#2C7BB6"   # frontend blue 
 COL_BE     <- "#D7191C"   # backend red
 COL_NOR    <- "red3"      # Norway highlight
 COL_NOR_RANK    <- "#E69F00"  # Norway highlight for dot plots against coloured segments
@@ -197,8 +197,8 @@ dotplot_rank <- function(cent_df, layer_colour) {
     )
 }
 
-p_dot_fe22 <- dotplot_rank(cent_fe_22, "Front-end", COL_FE)
-p_dot_be22 <- dotplot_rank(cent_be_22, "Back-end",  COL_BE)
+p_dot_fe22 <- dotplot_rank(cent_fe_22, COL_FE)
+p_dot_be22 <- dotplot_rank(cent_be_22,  COL_BE)
 
 p_cent_ranks <- p_dot_fe22 | p_dot_be22
 

@@ -128,7 +128,7 @@ make_cent <- function(g, layer_label, yr) {
     eigenvector  = igraph::eigen_centrality(
       g,
       directed = TRUE,
-      weights  = igraph::E(g)$weight_marketshare
+      weights  = NULL,
     )$vector
   ) |>
     mutate(
