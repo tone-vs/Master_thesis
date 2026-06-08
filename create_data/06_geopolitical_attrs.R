@@ -61,7 +61,7 @@ message("Country set loaded: ", length(iso3_set), " countries")
 
 # 1. GDP — World Bank via WDI package
 #    2022 GDP: primary measure used in all ERGM specifications
-#    2019 GDP: used only for the temporal ERGM 2019 model
+#    2019 GDP: used only for the temporal ERGM 2019 models
 #    Cache: if node_geopolitical.csv exists, load 2022 GDP from it to skip API call.
 #    Taiwan not in World Bank — added manually from IMF World Economic Outlook.
 
@@ -351,6 +351,9 @@ message("Geopolitical attributes attached and graphs re-saved")
 #     Padded to the full graph node set; countries without UNGA data receive NA.
 # -----------------------------------------------------------------------------
 
+# Taiwan (TWN) is excluded from this matrix: no UNGA voting record.
+# Taiwan is included in igraph objects for descriptive SNA only.
+# Excluding TWN here avoids NA handling in downstream ERGM scripts.
 build_unga_matrix <- function(dyad_unga, all_iso3) {
   iso3_ordered <- sort(unique(c(dyad_unga$iso3_i, dyad_unga$iso3_j)))
   unga_raw <- dyad_unga |>
@@ -378,7 +381,10 @@ build_unga_matrix <- function(dyad_unga, all_iso3) {
 
 all_iso3 <- sort(V(graphs[["backend_2022"]])$iso3)
 
-result      <- build_unga_matrix(dyad_unga, all_iso3)
+# Taiwan excluded from UNGA matrix: not a UN member, no voting record.
+# Retained in igraph objects for descriptive SNA only.
+unga_iso3   <- setdiff(all_iso3, "TWN")
+result      <- build_unga_matrix(dyad_unga, unga_iso3)
 unga_matrix <- result$mat
 
 saveRDS(unga_matrix, file.path("data/processed", "unga_similarity_matrix.rds"))

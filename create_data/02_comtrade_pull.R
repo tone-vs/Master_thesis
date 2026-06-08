@@ -128,7 +128,7 @@ fetch_one <- function(reporter, yr) {
 pull_year <- function(yr) {
 
   checkpoint_path <- file.path(
-    "data/semiconductor",
+    DIRS$network,
     paste0("semiconductor_network_", yr, "_checkpoint.csv")
   )
 

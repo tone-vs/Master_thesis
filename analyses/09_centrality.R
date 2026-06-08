@@ -9,7 +9,7 @@
 #   strength_in / out       — weighted degree using weight_marketshare
 #   betweenness             — weighted betweenness (normalised); weights
 #                             inverted so strong trade = short distance
-#   eigenvector             — eigenvector centrality (directed, weighted)
+#   eigenvector             — eigenvector centrality (directed, unweighted)
 #
 # igraph functions use the full igraph:: namespace throughout. Never call
 # bare degree(), strength(), betweenness(), or eigen_centrality() — these
