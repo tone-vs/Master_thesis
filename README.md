@@ -1,4 +1,4 @@
-# Mapping Norway in the Global Semiconductor Value Chain
+# Norway's Position In The Semiconductor Value Chain During Geopolitical Realignment 
 
 Master's thesis — UC3M, 2025.  
 Supervisor: Francisco Villamil
@@ -136,9 +136,11 @@ research design. This yields approximately 30 countries.
 See `config.R` for the full lists of `hs_layer1` and `hs_layer2` codes.
 
 ### Trade threshold
-Bilateral flows below USD 1 million are excluded (`MIN_FLOW = 1e6` in `config.R`).
-The threshold is applied after aggregating across HS codes to the bilateral
-dyad level.
+Bilateral product-level flows below USD 1,000 are excluded (`MIN_FLOW = 1000` 
+in `config.R`), following Ou et al. (2024) who demonstrate this threshold 
+retains more than 99.99% of total semiconductor trade value. The threshold 
+is applied at the HS6 product level before aggregation to the bilateral dyad 
+level in `05_build_network_data.R`.
 
 ### Taiwan data handling
 Taiwan does not report to UN Comtrade. Its trade data is sourced from the
