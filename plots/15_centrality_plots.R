@@ -47,8 +47,6 @@ centrality_all <- readRDS(inputs["centrality"])
 message("Inputs loaded: ", nrow(centrality_all), " centrality observations.")
 
 # ── Shared constants ──────────────────────────────────────────────────────────
-COL_FE     <- "#2C7BB6"   # frontend blue 
-COL_BE     <- "#D7191C"   # backend red
 COL_NOR    <- "red3"      # Norway highlight
 COL_NOR_RANK    <- "#E69F00"  # Norway highlight for dot plots against coloured segments
 COL_OTHER  <- "steelblue"

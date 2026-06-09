@@ -18,12 +18,15 @@
 YEARS              <- c(2019, 2022)
 YEAR_GDP      <- 2022   # used by 06_geopolitical_attrs.R — primary analysis year
 YEAR_GDP_2019 <- 2019   # used for temporal ERGM comparison only
-MIN_FLOW           <- 1e6
+MIN_FLOW           <- 1000 # USD 1,000 — following Ou et al. (2024)
 COVERAGE_THRESHOLD <- 0.99
 FOCAL_COUNTRY      <- "NOR"
 FORCED_INCLUSIONS <- c(
   "NOR", "SWE", "FIN", "DNK"       # focal + Nordic comparators
 )
+
+COL_FE <- "#2166ac"   # frontend blue — consistent across all plots
+COL_BE <- "#d6604d"   # backend red/coral — consistent across all plots
 
 
 hs_layer1 <- c("280461","381800","811292","848610","848620","848630","848640","848690","903082")

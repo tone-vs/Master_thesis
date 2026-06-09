@@ -55,8 +55,8 @@ theme_nor <- theme_minimal(base_size = 12) +
 make_hs_panel <- function(direction_col) {
   edges_all |>
     filter(.data[[direction_col]] == FOCAL_COUNTRY) |>
-    group_by(hs_code, hs_desc, layer) |>
-    summarise(trade_m = sum(trade_value_usd, na.rm = TRUE) / 1e6, .groups = "drop") |>
+    group_by(hs_code, layer) |>
+    summarise(trade_m = sum(trade_value_usd, na.rm = TRUE) / 1e6,   hs_desc = first(hs_desc), .groups = "drop") |>
     mutate(
       layer_label = if_else(layer == "layer1_frontend", "Frontend (L1)", "Backend (L2)"),
       hs_label    = paste0(hs_code, "\n", str_trunc(hs_desc, 35))
@@ -65,8 +65,15 @@ make_hs_panel <- function(direction_col) {
     mutate(hs_label = fct_reorder(hs_label, trade_m)) |>
     ggplot(aes(x = trade_m, y = hs_label, fill = layer_label)) +
     geom_col(width = 0.7, alpha = 0.9) +
-    geom_text(aes(label = paste0("$", round(trade_m), "M")),
-              hjust = -0.05, size = 2.8) +
+    geom_text(
+      aes(
+        label  = paste0("$", round(trade_m), "M"),
+        hjust  = ifelse(trade_m < 15, -0.05, 1.1),
+        colour = ifelse(trade_m < 15, "black", "white")
+      ),
+      size = 2.8
+    ) +
+    scale_colour_identity() +
     scale_fill_manual(
       values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
       name   = "Layer"
@@ -81,8 +88,10 @@ make_hs_panel <- function(direction_col) {
           panel.grid.major.y = element_blank())
 }
 
-p_hs_exp <- make_hs_panel("reporter_code")
-p_hs_imp <- make_hs_panel("partner_code")
+p_hs_exp <- make_hs_panel("reporter_code") +
+  labs(title = "Exports")
+p_hs_imp <- make_hs_panel("partner_code") +
+  labs(title = "Imports")
 
 fig_hs_combined <- (p_hs_exp | p_hs_imp) +
   plot_layout(guides = "collect") &
@@ -134,12 +143,12 @@ p_exp <- ggplot(nor_exp_partners,
     data = ~ filter(.x, trade_m >= 1),
     aes(label = paste0("$", round(trade_m), "M")),
     position = position_stack(vjust = 0.5),
-    size = 2.6, colour = "white", fontface = "bold"
+    size = 2.6, colour = "black", fontface = "bold"
   ) +
   scale_fill_manual(values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
                     name = "Layer") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
-  labs(x = "USD million", y = NULL) +
+  labs(title = "Export destinations", x = "USD million", y = NULL) +
   theme_nor
 
 p_imp <- ggplot(nor_imp_partners,
@@ -149,12 +158,12 @@ p_imp <- ggplot(nor_imp_partners,
     data = ~ filter(.x, trade_m >= 1),
     aes(label = paste0("$", round(trade_m), "M")),
     position = position_stack(vjust = 0.5),
-    size = 2.6, colour = "white", fontface = "bold"
+    size = 2.6, colour = "black", fontface = "bold"
   ) +
   scale_fill_manual(values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
                     name = "Layer") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
-  labs(x = "USD million", y = NULL) +
+  labs(title = "Import sources", x = "USD million", y = NULL) +
   theme_nor
 
 fig_partners <- (p_exp | p_imp) +

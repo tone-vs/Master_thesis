@@ -100,10 +100,14 @@ cli::cli_inform("Reporter ISO3 codes: {paste(sort(reporters), collapse = ', ')}"
 
 
 fetch_one <- function(reporter, yr) {
+  # partner = "everything" sends a compact parameter that avoids
+  # HTTP 414 URI Too Long errors when combined with multiple HS codes.
+  # "all_countries" was the original value but caused URL length issues
+  # in comtradr 1.0.5 when combined with all_hs commodity codes.
   tryCatch({
     ct_get_data(
       reporter       = reporter,
-      partner        = "all_countries",
+      partner        = "everything",
       commodity_code = all_hs,
       start_date     = yr,
       end_date       = yr,
@@ -204,7 +208,14 @@ for (yr in YEARS) {
 
 cli::cli_inform("All years fetched.")
 
-
+# Save raw unfiltered results — allows threshold changes without re-pulling API
+saveRDS(
+  all_results |>
+    lapply(\(df) mutate(df, across(everything(), as.character))) |>
+    bind_rows(),
+  file.path(DIRS$network, "semiconductor_network_raw.rds")
+)
+message("Saved: semiconductor_network_raw.rds (unfiltered — for reprocessing)")
 
 # CLEAN & SAVE
 # Combine all years, apply layer join, select and filter to final columns.

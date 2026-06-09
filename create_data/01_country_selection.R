@@ -13,7 +13,7 @@
 #   data/processed/country_selection.rds  — R object for downstream scripts
 #   data/processed/reporters.rds          — character vector of selected ISO3 codes
 #
-# Citation: OECD (2025) uses 90% coverage threshold for country set definition.
+# Citation: OECD (2025) uses 99% coverage threshold for country set definition.
 # Run from project root: Rscript create_data/01_country_selection.R
 
 library(comtradr)
