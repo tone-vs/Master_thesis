@@ -20,6 +20,7 @@ library(comtradr)
 library(dplyr)
 library(readr)
 library(purrr)
+library(scales)
 
 source("config.R")
 
@@ -30,7 +31,19 @@ dir.create("data/processed", recursive = TRUE, showWarnings = FALSE)
 # Use most recent year for coverage ranking
 YEAR <- max(YEARS)
 
+country_selection_path <- file.path("data/processed", "country_selection.csv")
 
+# =============================================================================
+# CACHE CHECK — skip Comtrade API calls if country_selection.csv exists.
+# Re-run this script only when the country set needs to change (e.g. new YEARS).
+# =============================================================================
+
+if (file.exists(country_selection_path)) {
+  message("country_selection.csv found — loading from CSV (skipping Comtrade pull).")
+  country_selection <- read_csv(country_selection_path, show_col_types = FALSE)
+  reporters <- country_selection |> filter(selected) |> pull(reporter_code)
+  message("Reporters loaded: ", length(reporters))
+} else {
 
 # 1. Pull aggregate exports: all reporters → world, per HS code
 #    21 calls total
@@ -185,29 +198,35 @@ write_csv(
 
 message("\nSaved: country_selection.csv — use for thesis appendix table")
 
+} # end: else (country_selection.csv not found)
+
 # 5. Pull total exports across all goods — needed for RCA denominator
 # Include FORCED_INCLUSIONS (e.g. Nordic comparators) even if below coverage
 # threshold, so their RCA denominator is available in 05_build_network_data.R.
-reporters_rca <- union(reporters, FORCED_INCLUSIONS)
-message("Pulling total exports for RCA denominator (N = ", length(reporters_rca), " reporters)...")
-total_exports_raw <- ct_get_data(
-  reporter       = reporters_rca,
-  partner        = "all_countries",
-  commodity_code = "TOTAL",
-  start_date     = 2019,
-  end_date       = 2022,
-  flow_direction = "export"
-) |>
-  select(
-    reporter_code   = reporter_iso,
-    total_exports   = primary_value,
-    year            = ref_year
+# Cache: skip if total_exports.csv already exists.
+total_exports_path <- file.path("data/processed", "total_exports.csv")
+if (file.exists(total_exports_path)) {
+  message("total_exports.csv found — skipping RCA denominator pull.")
+} else {
+  reporters_rca <- union(reporters, FORCED_INCLUSIONS)
+  message("Pulling total exports for RCA denominator (N = ", length(reporters_rca), " reporters)...")
+  total_exports_raw <- ct_get_data(
+    reporter       = reporters_rca,
+    partner        = "all_countries",
+    commodity_code = "TOTAL",
+    start_date     = min(YEARS),
+    end_date       = max(YEARS),
+    flow_direction = "export"
   ) |>
-  filter(!is.na(total_exports), total_exports > 0)
-
-write_csv(total_exports_raw,
-          file.path("data/processed", "total_exports.csv"))
-message("Saved: total_exports.csv")
+    select(
+      reporter_code   = reporter_iso,
+      total_exports   = primary_value,
+      year            = ref_year
+    ) |>
+    filter(!is.na(total_exports), total_exports > 0)
+  write_csv(total_exports_raw, total_exports_path)
+  message("Saved: total_exports.csv")
+}
 
 # 6. Save key R objects for downstream scripts
 saveRDS(country_selection, file.path("data/processed", "country_selection.rds"))

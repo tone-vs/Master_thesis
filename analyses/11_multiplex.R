@@ -14,14 +14,15 @@
 #   data/processed/centrality_all.rds   — produced by 09_centrality.R
 #
 # Outputs:
-#   thesis_project/analyses/output/table_multiplex_cor.tex        — Pearson r matrix (2022)
-#   thesis_project/analyses/output/table_multiplex_change.tex     — centrality change 2019→2022
-#   thesis_project/analyses/output/table_multiplex_crosslayer.tex — cross-layer rankings (2022)
+#   analyses/output/table_multiplex_cor.tex        — Pearson r matrix (2022)
+#   analyses/output/table_multiplex_change.tex     — centrality change 2019→2022
+#   analyses/output/table_multiplex_crosslayer.tex — cross-layer rankings (2022)
 #
 # Run from project root: Rscript analyses/11_multiplex.R
 
 library(dplyr)
 library(tidyr)
+library(countrycode)  # countrycode::countrycode() used for country name lookup
 source("config.R")
 source("analyses/table_helpers.R")
 

@@ -37,12 +37,10 @@ hs_layer_map <- data.frame(
               rep("layer2_backend",  length(hs_layer2)))
 )
 
-THESIS_DIR <- "thesis_project"
-
 DIRS <- list(
   raw       = "data/raw",
   processed = "data/processed",
   network   = "data/raw/semiconductor",
-  tables    = file.path(THESIS_DIR, "analyses/output"),
-  figures   = file.path(THESIS_DIR, "plots/output")
+  tables    = "analyses/output",
+  figures   = "plots/output"
 )

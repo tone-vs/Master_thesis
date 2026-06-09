@@ -12,9 +12,9 @@
 #   data/processed/centrality_all.rds      — produced by analyses/09_centrality.R
 #
 # Outputs (PDF, no screen display):
-#   thesis_project/plots/output/cent_scatter_2022.pdf         — brokerage vs influence (2022)
-#   thesis_project/plots/output/cent_norway_change.pdf        — Norway centrality change
-#   thesis_project/plots/output/cent_ranks_2022.pdf     — out-strength rankings
+#   plots/output/cent_scatter_2022.pdf         — brokerage vs influence (2022)
+#   plots/output/cent_norway_change.pdf        — Norway centrality change
+#   plots/output/cent_ranks_2022.pdf     — out-strength rankings
 #
 # Run from project root: Rscript plots/15_centrality_plots.R
 

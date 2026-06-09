@@ -2,7 +2,7 @@
 #  Load and clean OECD WIPO patent counts; compute 4-year average
 #  (2019–2022) and log-normalised scores for use as node attributes.
 #  Country set is derived from country_selection.csv + FORCED_INCLUSIONS
-#  + TWN (Taiwan — present via Taiwan ITA data; BTIGE retained separately for ERGM)
+#  + TWN (Taiwan — present via Taiwan ITA data)
 #
 # Inputs:  data/raw/oecd_patents_wipo.csv
 #          data/processed/country_selection.csv  (produced by 01_country_selection.R)

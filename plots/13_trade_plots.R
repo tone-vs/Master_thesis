@@ -3,7 +3,7 @@
 # Inputs:
 #   data/processed/edges_raw.rds
 #
-# Outputs (thesis_project/plots/output/):
+# Outputs (plots/output/):
 #   fig_norway_hs_combined.pdf  — top HS exports vs imports (2022)
 #   fig_norway_partners.pdf     — top bilateral partners by layer (2022)
 #
@@ -54,8 +54,7 @@ theme_nor <- theme_minimal(base_size = 12) +
 
 make_hs_panel <- function(direction_col) {
   edges_all |>
-    filter(.data[[direction_col]] == FOCAL_COUNTRY,
-           year == 2022, !is.na(layer), source != "OECD_BTIGE") |>
+    filter(.data[[direction_col]] == FOCAL_COUNTRY) |>
     group_by(hs_code, hs_desc, layer) |>
     summarise(trade_m = sum(trade_value_usd, na.rm = TRUE) / 1e6, .groups = "drop") |>
     mutate(
@@ -107,8 +106,7 @@ message("Saved: ", file.path(DIRS$figures, "fig_norway_hs_combined.pdf"))
 # =============================================================================
 
 nor_exp_partners <- edges_all |>
-  filter(year == 2022, reporter_code == FOCAL_COUNTRY,
-         !is.na(layer), source != "OECD_BTIGE") |>
+  filter(year == 2022, reporter_code == FOCAL_COUNTRY) |>
   mutate(layer_label = if_else(layer == "layer1_frontend", "Frontend (L1)", "Backend (L2)")) |>
   group_by(partner_code, layer_label) |>
   summarise(trade_m = sum(trade_value_usd, na.rm = TRUE) / 1e6, .groups = "drop") |>
@@ -119,8 +117,7 @@ nor_exp_partners <- edges_all |>
   mutate(partner_code = fct_reorder(partner_code, total))
 
 nor_imp_partners <- edges_all |>
-  filter(year == 2022, partner_code == FOCAL_COUNTRY,
-         !is.na(layer), source != "OECD_BTIGE") |>
+  filter(year == 2022, partner_code == FOCAL_COUNTRY)|>
   mutate(layer_label = if_else(layer == "layer1_frontend", "Frontend (L1)", "Backend (L2)")) |>
   group_by(reporter_code, layer_label) |>
   summarise(trade_m = sum(trade_value_usd, na.rm = TRUE) / 1e6, .groups = "drop") |>

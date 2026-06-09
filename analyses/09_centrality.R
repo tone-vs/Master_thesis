@@ -23,11 +23,11 @@
 #
 # Outputs:
 #   data/processed/centrality_all.rds                                    — full centrality data frame
-#   thesis_project/analyses/output/table_centrality_fe22.tex             — frontend 2022 rankings (longtable)
-#   thesis_project/analyses/output/table_centrality_be22.tex             — backend 2022 rankings (longtable)
-#   thesis_project/analyses/output/table_centrality_full.tex             — both layers combined, 2022 (longtable)
-#   thesis_project/analyses/output/table_centrality_norway.tex           — Norway centrality, 2022 (primary)
-#   thesis_project/analyses/output/table_centrality_norway_appendix.tex  — Norway centrality, 2019 (robustness)
+#   analyses/output/table_centrality_fe22.tex             — frontend 2022 rankings (longtable)
+#   analyses/output/table_centrality_be22.tex             — backend 2022 rankings (longtable)
+#   analyses/output/table_centrality_full.tex             — both layers combined, 2022 (longtable)
+#   analyses/output/table_centrality_norway.tex           — Norway centrality, 2022 (primary)
+#   analyses/output/table_centrality_norway_appendix.tex  — Norway centrality, 2019 (robustness)
 #
 # Run from project root: Rscript analyses/09_centrality.R
 

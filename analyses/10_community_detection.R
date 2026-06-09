@@ -16,9 +16,9 @@
 # Outputs:
 #   data/processed/communities.rds                — named list of igraph community objects
 #   data/processed/community_alliance_overlap.csv — BE 2022 community × alliance shares
-#   thesis_project/analyses/output/table_community_summary.tex — modularity + N communities by network
-#   thesis_project/analyses/output/table_community_norway.tex  — Norway's community membership
-#   thesis_project/analyses/output/table_community_2022.tex    — full community structure (2022),
+#   analyses/output/table_community_summary.tex — modularity + N communities by network
+#   analyses/output/table_community_norway.tex  — Norway's community membership
+#   analyses/output/table_community_2022.tex    — full community structure (2022),
 #                                                                 with nato_share and eu_share columns
 #                                                                 added from community_alliance_overlap
 #
@@ -27,6 +27,7 @@
 library(igraph)       # loaded for class dispatch; all calls use igraph:: prefix
 library(dplyr)
 library(tidyr)
+library(readr)        # readr::write_csv() for community_alliance_overlap.csv
 library(countrycode)  # needed for vertex-name normalisation fallback
 library(kableExtra)
 

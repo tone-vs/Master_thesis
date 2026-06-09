@@ -3,20 +3,19 @@
 # Computes Norway's semiconductor trade volumes and position across layers
 # and years from the pre-aggregation edge table.
 #
-# BTIGE note: edges_raw.rds contains only ITA HS6 and UN Comtrade flows;
-# BTIGE aggregate flows are excluded by the guard in 05_build_network_data.R.
-# All tables in this script therefore exclude BTIGE automatically.
+#  edges_raw.rds contains ITA HS6 and UN Comtrade flows;
+
 #
 # Inputs:
 #   data/processed/edges_raw.rds         — combined pre-aggregation edge table
 #   data/processed/node_geopolitical.rds — node attributes incl. alliance blocs
 #
 # Outputs:
-#   thesis_project/analyses/output/table_norway_position.tex  — Norway flow summary by layer/year
-#   thesis_project/analyses/output/table_top_partners.tex     — Norway's top 10 partners (2022)
-#   thesis_project/analyses/output/table_layer_asymmetry.tex  — export/import ratio by layer
-#   thesis_project/analyses/output/table_hs_exports.tex       — top export products by HS6 (2022)
-#   thesis_project/analyses/output/table_hs_imports.tex       — top import products by HS6 (2022)
+#   analyses/output/table_norway_position.tex  — Norway flow summary by layer/year
+#   analyses/output/table_top_partners.tex     — Norway's top 10 partners (2022)
+#   analyses/output/table_layer_asymmetry.tex  — export/import ratio by layer
+#   analyses/output/table_hs_exports.tex       — top export products by HS6 (2022)
+#   analyses/output/table_hs_imports.tex       — top import products by HS6 (2022)
 #
 # Run from project root: Rscript analyses/07_descriptive_trade.R
 
@@ -95,7 +94,7 @@ write_tex(
 # TABLE 2 — Norway's top 10 partners by trade value (2022, both layers)
 #
 #   Partners ranked by combined export + import value across both layers.
-#   BTIGE flows not present in edges_raw.rds (excluded upstream).
+
 # =============================================================================
 
 norway_bilateral <- edges_all |>
@@ -135,8 +134,7 @@ write_tex(
   norway_bilateral,
   path    = file.path(DIRS$tables, "table_top_partners.tex"),
   caption = paste0(
-    "Norway's top 10 bilateral semiconductor trade partners (2022, USD million, both layers). ",
-    "OECD BTIGE flows excluded."
+    "Norway's top 10 bilateral semiconductor trade partners (2022, USD million, both layers). "
   ),
   label   = "tab:top-partners"
 )
@@ -180,7 +178,7 @@ write_tex(
 #   Aggregated across all partner countries, 2022 only.
 #   hs_desc is sourced from the UN Comtrade commodity description field;
 #   rows where hs_desc is NA (rare Taiwan ITA edge cases) fall back to
-#   the hs_code string. BTIGE aggregate flows not present in edges_raw.rds.
+#   the hs_code string.
 # =============================================================================
 
 norway_hs_exports <- edges_all |>
@@ -203,8 +201,7 @@ write_tex(
   norway_hs_exports,
   path    = file.path(DIRS$tables, "table_hs_exports.tex"),
   caption = paste0(
-    "Norway's top semiconductor export products by HS6 code (2022, USD million). ",
-    "OECD BTIGE aggregate flows excluded."
+    "Norway's top semiconductor export products by HS6 code (2022, USD million). "
   ),
   label   = "tab:hs-exports"
 )
@@ -237,8 +234,7 @@ write_tex(
   norway_hs_imports,
   path    = file.path(DIRS$tables, "table_hs_imports.tex"),
   caption = paste0(
-    "Norway's top semiconductor import products by HS6 code (2022, USD million). ",
-    "OECD BTIGE aggregate flows excluded."
+    "Norway's top semiconductor import products by HS6 code (2022, USD million). "
   ),
   label   = "tab:hs-imports"
 )

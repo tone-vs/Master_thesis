@@ -41,14 +41,14 @@
 #   data/processed/dist_matrix_log.rds
 #
 # Outputs:
-#   thesis_project/analyses/output/table_ergm_backend.tex      — BE M1, M2, M3 (2022)
-#   thesis_project/analyses/output/table_ergm_layer.tex        — BE M3 vs FE M3 (2022)
-#   thesis_project/analyses/output/table_ergm_temporal.tex     — BE 2019 M3 vs BE 2022 M3
-#   thesis_project/analyses/output/table_ergm_fe_temporal.tex  — FE 2019 M3 vs FE 2022 M3
-#   thesis_project/plots/output/fig_ergm_gof_be.pdf            — GoF BE 2022 M3
-#   thesis_project/plots/output/fig_ergm_gof_fe.pdf            — GoF FE 2022 M3
-#   thesis_project/plots/output/fig_ergm_gof_be19.pdf          — GoF BE 2019 M3
-#   thesis_project/plots/output/fig_ergm_gof_fe19.pdf          — GoF FE 2019 M3
+#   analyses/output/table_ergm_backend.tex      — BE M1, M2, M3 (2022)
+#   analyses/output/table_ergm_layer.tex        — BE M3 vs FE M3 (2022)
+#   analyses/output/table_ergm_temporal.tex     — BE 2019 M3 vs BE 2022 M3
+#   analyses/output/table_ergm_fe_temporal.tex  — FE 2019 M3 vs FE 2022 M3
+#   plots/output/fig_ergm_gof_be.pdf            — GoF BE 2022 M3
+#   plots/output/fig_ergm_gof_fe.pdf            — GoF FE 2022 M3
+#   plots/output/fig_ergm_gof_be19.pdf          — GoF BE 2019 M3
+#   plots/output/fig_ergm_gof_fe19.pdf          — GoF FE 2019 M3
 #
 # Run from project root: Rscript analyses/12_ergm.R
 # WARNING: MCMC estimation is slow — allow 30–90 min on a laptop.
@@ -121,7 +121,9 @@ message("igraph objects and geopolitical data loaded.")
 library(statnet)
 library(ergm)
 library(dplyr)
+library(tidyr)        # tidyr::replace_na() used in igraph_to_network()
 library(countrycode)  # needed for vertex-name normalisation fallback
+library(texreg)       # ERGM table output (loaded here so it's declared upfront)
 
 source("config.R")
 dir.create(DIRS$tables,   recursive = TRUE, showWarnings = FALSE)
@@ -479,12 +481,12 @@ plot(gof_fe19, main = "GoF — FE 2019 M3")
 dev.off()
 
 # GoF for temporal comparison models 
-gof_be19_ergm <- ergm::gof(ergm_be19_m3,
+gof_be19 <- ergm::gof(ergm_be19_m3,
                            GOF     = ~ idegree + odegree + distance + espartners,
                            control = ergm::control.gof.ergm(seed = 42))
 
 pdf(file.path(DIRS$figures, "fig_ergm_gof_be19.pdf"), width = 10, height = 8)
-plot(gof_be19_ergm, main = "GoF — BE 2019 M3")
+plot(gof_be19, main = "GoF — BE 2019 M3")
 dev.off()
 
 message("Saved: fig_ergm_gof_be19.pdf and fig_ergm_gof_fe19.pdf")
@@ -493,8 +495,6 @@ message("Saved: fig_ergm_gof_be19.pdf and fig_ergm_gof_fe19.pdf")
 # =============================================================================
 # 9. Results tables — texreg (has a native extract.ergm method)
 # =============================================================================
-
-library(texreg)
 
 # ── Coefficient name map (covers all possible term names across models) ────────
 ergm_coef_names <- c(

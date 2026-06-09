@@ -17,7 +17,6 @@
 #   data/processed/node_geopolitical.csv
 #   data/processed/node_geopolitical_2019.csv  — 2019 GDP for temporal ERGM comparison
 #   data/processed/dyad_unga_similarity.csv    — UNGA penalised similarity, votes 2017–2019
-#   data/processed/unga_similarity_matrix.rds
 #   data/processed/node_geopolitical.rds
 #   data/processed/dyad_unga_similarity.rds
 #   data/processed/graph_*.rds  — graphs updated with geopolitical attributes
@@ -387,7 +386,6 @@ unga_iso3   <- setdiff(all_iso3, "TWN")
 result      <- build_unga_matrix(dyad_unga, unga_iso3)
 unga_matrix <- result$mat
 
-saveRDS(unga_matrix, file.path("data/processed", "unga_similarity_matrix.rds"))
 
 message("UNGA matrix: ", nrow(unga_matrix), "x", ncol(unga_matrix),
         " (", result$n_common, " countries with UNGA data)")

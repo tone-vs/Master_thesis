@@ -1,125 +1,208 @@
 # Mapping Norway in the Global Semiconductor Value Chain
 
 Master's thesis — UC3M, 2025.  
-Supervisor: [Francisco Villamil]
+Supervisor: Francisco Villamil
+
+---
 
 ## Project overview
 
 This repository analyses Norway's structural position in the global semiconductor
 value chain using network analysis (SNA) and Exponential Random Graph Models
-(ERGMs). Trade data come from UN Comtrade (v2 API), OECD BTIGE, and Taiwan ITA.
+(ERGMs). The pipeline constructs bilateral trade networks from UN Comtrade data
+and Taiwan ITA customs data, computes centrality and community structure, and
+estimates ERGM models to explain the probability of trade ties between countries.
 
-## Repository structure
+The focal country is Norway (NOR). Nordic comparators Sweden, Finland, and
+Denmark are included by research design.
 
-```
-create_data/                  Data preparation scripts (run in order 01–06)
-analyses/                     SNA and ERGM analysis scripts
-plots/                        Visualisation scripts
-data/
-  raw/                        Raw input files (not committed — see Data section below)
-  processed/                  Pipeline outputs (git-ignored; regenerate via pipeline)
-thesis_project/               LaTeX source for the thesis (Overleaf-compatible)
-  chapters/                   .tex chapter files
-  bibliography/               references.bib
-  analyses/output/            ← R scripts write .tex tables HERE (committed)
-  plots/output/               ← R scripts write .pdf/.png figures HERE (committed)
-  main.tex                    Master LaTeX document
-config.R                      Shared constants (YEARS, HS codes, DIRS paths)
-```
+---
 
-All R scripts write their outputs directly into `thesis_project/analyses/output/`
-and `thesis_project/plots/output/` using the `DIRS$tables` and `DIRS$figures`
-variables defined in `config.R`. This means running any analysis script
-automatically updates the LaTeX project.
+## Data sources
 
-## Setup
+### Obtained via API (automated on first run, cached locally)
 
-### 1. R packages
+| Source | Script | What it provides |
+|--------|--------|-----------------|
+| UN Comtrade v2 API | `01_country_selection.R`, `02_comtrade_pull.R` | Bilateral HS6 semiconductor trade flows, 2019 and 2022 |
+| World Bank WDI API | `06_geopolitical_attrs.R` | GDP and GDP per capita, 2019 and 2022 |
+| `unvotes` R package | `06_geopolitical_attrs.R` | UN General Assembly voting records, 2017–2019 |
+| `cepiigeodist` R package | `06_geopolitical_attrs.R` | Bilateral geographic distance (CEPII GeoDist) |
 
-```r
-install.packages(c(
-  "comtradr", "dplyr", "tidyr", "readr", "purrr", "igraph",
-  "tidygraph", "ggraph", "ggplot2", "ggrepel", "patchwork",
-  "countrycode", "WDI", "unvotes", "lubridate", "scales",
-  "statnet", "ergm", "modelsummary", "cli"
-))
-```
+All API results are cached to CSV/RDS on first run. Re-running a script
+skips the API call if the output file already exists.
 
-### 2. Comtrade API key
-
-Register at <https://comtradeplus.un.org/> and add your key to `.Renviron`:
+**Comtrade API key required.** Register at <https://comtradeplus.un.org/>.
+Add to `.Renviron` (run `usethis::edit_r_environ()` in R):
 
 ```
 COMTRADE_PRIMARY_KEY=your_key_here
 ```
 
-Then restart R (`Sys.getenv("COMTRADE_PRIMARY_KEY")` should return your key).
+Restart R and verify: `Sys.getenv("COMTRADE_PRIMARY_KEY")`.
 
-### 3. Raw data files
+Free tier: 250 API calls/day, 1 call/second.
+Script `02` uses checkpoint/resume logic — safe to interrupt and restart.
 
-Place the following files in `data/raw/` before running the pipeline:
+### Manual download required
 
-| File | Source |
-|------|--------|
-| `oecd_btige_taiwan.csv` | OECD BTIGE — CPA C261+C265 |
-| `frontend_taiwan.csv` | Taiwan ITA customs portal (rename download) |
-| `oecd_patents_wipo.csv` | OECD WIPO patent counts |
-| `oecd_rca_taiwan.csv` | OECD total-export data for Taiwan RCA denominator |
+Place these files in `data/raw/` before running the pipeline:
 
-## Running the pipeline
+| File | Source | Notes |
+|------|--------|-------|
+| `frontend_taiwan.csv` | [Taiwan ITA customs portal](https://portal.sw.nat.gov.tw/APGA/GA30E) | Query: Total Exports + Imports, Annual 2022, Partner = World; CCC codes: 381800, 848610-848640, 848690, 903082 |
+| `backend_taiwan.csv` | Same portal | Same query; CCC codes: 852351-852359, 854110-854190, 854231-854239, 854290 |
+| `oecd_patents_wipo.csv` | [OECD patent statistics](https://stats.oecd.org/) | WIPO patent families by inventor country, 2019-2022 |
+| `oecd_rca_taiwan.csv` | [OECD trade data](https://stats.oecd.org/) | Taiwan total exports by year — used as RCA denominator for TWN only |
 
-### Full pipeline (recommended)
+> **Note:** Taiwan does not report to UN Comtrade. Taiwan's trade data comes
+> from the ITA customs portal (2022 only) and is used only for descriptive
+> SNA. Taiwan is excluded from all ERGM specifications (no UNGA voting record).
 
-```bash
-make
-```
+---
 
-### Step by step
+## Pipeline run order
 
-```bash
-make data    # run create_data/01–06 in order
-make plots   # run plots/13_trade_plots.R
-```
-
-Or run individual scripts from the **project root**:
+All scripts must be run from the **project root** (the folder containing `config.R`).
 
 ```bash
-Rscript create_data/01_country_selection.R
-Rscript create_data/02_comtrade_pull.R
-Rscript create_data/03_taiwan_data.R
-Rscript create_data/04_patent_data.R
-Rscript create_data/05_build_network_data.R
-Rscript create_data/06_geopolitical_attrs.R
+Rscript create_data/01_country_selection.R   # Country set selection
+Rscript create_data/02_comtrade_pull.R       # Bilateral HS6 trade data
+Rscript create_data/03_taiwan_data.R         # Taiwan ITA processing
+Rscript create_data/04_patent_data.R         # OECD patent data
+Rscript create_data/05_build_network_data.R  # Build igraph objects + RCA
+Rscript create_data/06_geopolitical_attrs.R  # GDP, UNGA, distance covariates
+
+# Analysis (can be run independently once create_data/ is complete)
+Rscript analyses/07_descriptive_trade.R
+Rscript analyses/08_network_summary.R
+Rscript analyses/09_centrality.R
+Rscript analyses/10_community_detection.R
+Rscript analyses/11_multiplex.R
+Rscript analyses/12_ergm.R          # WARNING: MCMC estimation ~30-90 min
+
+# Visualisations (depend on analyses/09 and 10)
 Rscript plots/13_trade_plots.R
+Rscript plots/14_network_viz.R
+Rscript plots/15_centrality_plots.R
 ```
 
-Then knit `final_analysis.Rmd` in RStudio or via:
+**Dependency notes:**
+- `14_network_viz.R` requires `centrality_all.rds` (from 09) and `communities.rds` (from 10)
+- `15_centrality_plots.R` requires `centrality_all.rds` (from 09)
+- Scripts 07-15 can be run in any order within their tier once `create_data/` is complete
 
-```bash
-Rscript -e "rmarkdown::render('final_analysis.Rmd')"
+---
+
+## Output files
+
+Tables are written to `analyses/output/`. Figures are written to `plots/output/`.
+Both directories are created automatically on first run.
+
+| Script | Key outputs |
+|--------|-------------|
+| `01_country_selection.R` | `data/processed/country_selection.csv`, `total_exports.csv` |
+| `02_comtrade_pull.R` | `data/raw/semiconductor/semiconductor_network.csv` |
+| `03_taiwan_data.R` | `data/processed/taiwan_full.csv`, `taiwan_ita_full.csv` |
+| `04_patent_data.R` | `data/processed/patents_avg.csv` |
+| `05_build_network_data.R` | `data/processed/graph_frontend_{2019,2022}.rds`, `graph_backend_{2019,2022}.rds`, `node_attributes.csv`, `edges_raw.rds` |
+| `06_geopolitical_attrs.R` | `data/processed/node_geopolitical.rds`, `dyad_unga_similarity.csv`, `dist_matrix_log.rds` — also attaches geopolitical attributes to all four `graph_*.rds` |
+| `07_descriptive_trade.R` | `analyses/output/table_norway_position.tex`, `table_top_partners.tex`, `table_layer_asymmetry.tex`, `table_hs_exports.tex`, `table_hs_imports.tex` |
+| `08_network_summary.R` | `analyses/output/table_network_summary.tex`, `table_network_summary_appendix.tex` |
+| `09_centrality.R` | `data/processed/centrality_all.rds`, `analyses/output/table_centrality_*.tex` (x5) |
+| `10_community_detection.R` | `data/processed/communities.rds`, `community_alliance_overlap.csv`, `analyses/output/table_community_*.tex` (x4) |
+| `11_multiplex.R` | `analyses/output/table_multiplex_cor.tex`, `table_multiplex_change.tex`, `table_multiplex_crosslayer.tex` |
+| `12_ergm.R` | `analyses/output/table_ergm_backend.tex`, `table_ergm_layer.tex`, `table_ergm_temporal.tex`, `table_ergm_fe_temporal.tex`; `plots/output/fig_ergm_gof_*.pdf` (x4) |
+| `13_trade_plots.R` | `plots/output/fig_norway_hs_combined.pdf`, `fig_norway_partners.pdf` |
+| `14_network_viz.R` | `plots/output/net_combined_2022.pdf`, `net_combined_2019.pdf` |
+| `15_centrality_plots.R` | `plots/output/cent_scatter_2022.pdf`, `cent_norway_change.pdf`, `cent_ranks_2022.pdf` |
+
+---
+
+## Key design decisions
+
+### Country set
+Countries are selected data-driven: ranked by total semiconductor export share
+and added iteratively until the sample covers >=99% of world trade (OECD 2025
+methodology). Norway, Sweden, Finland, and Denmark are forced inclusions by
+research design. This yields approximately 30 countries.
+
+### Two layers
+- **Layer 1 — Front-end (layer1_frontend):** upstream/materials HS codes
+  (polysilicon, silicon carbide, gallium/germanium, semiconductor equipment)
+- **Layer 2 — Back-end (layer2_backend):** downstream HS codes
+  (diodes, transistors, integrated circuits, flash memory)
+
+See `config.R` for the full lists of `hs_layer1` and `hs_layer2` codes.
+
+### Trade threshold
+Bilateral flows below USD 1 million are excluded (`MIN_FLOW = 1e6` in `config.R`).
+The threshold is applied after aggregating across HS codes to the bilateral
+dyad level.
+
+### Taiwan data handling
+Taiwan does not report to UN Comtrade. Its trade data is sourced from the
+Taiwan ITA customs portal (2022 only).
+
+| Context | Taiwan included? | Node count |
+|---------|-----------------|-----------|
+| Descriptive SNA (scripts 07-11, 13-15) | Yes — 2022 networks only | 30 nodes (2022), 29 nodes (2019) |
+| ERGM specifications (script 12) | No | 29 nodes (all years) |
+
+The 2019 exclusion is a data limitation (ITA data is 2022-only).
+The ERGM exclusion is by design: Taiwan has no UN General Assembly voting
+record and cannot be assigned a UNGA similarity score.
+
+### ERGM structure
+Four tables are produced:
+- **Table A:** Back-end 2022 stepwise (M1: structural, M2: gravity, M3: full)
+- **Table B:** Layer comparison — BE M3 vs FE M3 (2022)
+- **Table C:** BE temporal — BE 2019 M3 vs BE 2022 M3
+- **Table D:** FE temporal — FE 2019 M3 vs FE 2022 M3
+
+All models use `seed = 42` for reproducibility.
+
+### Community detection
+Louvain algorithm with `seed = 42` set immediately before each call.
+Market-share weights are used so economically stronger ties have more
+influence on community assignment.
+
+---
+
+## Requirements
+
+### R version
+R >= 4.3 recommended. The native pipe `|>` is used throughout; R >= 4.1 required.
+
+### Packages
+
+```r
+install.packages(c(
+  # Data retrieval
+  "comtradr", "WDI",
+  # Data manipulation
+  "dplyr", "tidyr", "readr", "purrr", "tibble", "lubridate",
+  "scales", "forcats", "stringr",
+  # Network analysis
+  "igraph", "ggraph",
+  # Statistical modelling
+  "statnet", "ergm", "texreg",
+  # Visualisation
+  "ggplot2", "ggrepel", "patchwork",
+  # Utilities
+  "countrycode", "cepiigeodist", "unvotes", "cli",
+  # Tables
+  "kableExtra"
+))
 ```
 
-### Script run order and outputs
+### Environment variables
+```
+COMTRADE_PRIMARY_KEY=your_key_here
+```
 
-| Script | Inputs | Key outputs |
-|--------|--------|-------------|
-| `01_country_selection.R` | Comtrade API | `country_selection.csv`, `total_exports.csv` |
-| `02_comtrade_pull.R` | Comtrade API, `country_selection.csv` | `semiconductor_network.csv` |
-| `03_taiwan_data.R` | `data/raw/oecd_btige_taiwan.csv`, `frontend_taiwan.csv` | `taiwan_full.csv` |
-| `04_patent_data.R` | `data/raw/oecd_patents_wipo.csv` | `patents_avg.csv` |
-| `05_build_network_data.R` | All above | `graph_*.rds`, `edges_*.csv`, `node_attributes.csv`, `edges_raw.rds`, `nodes.rds` |
-| `06_geopolitical_attrs.R` | `node_attributes.csv`, WDI API, unvotes | `node_geopolitical.csv`, `dyad_unga_similarity.csv`, `unga_similarity_matrix.rds` |
-| `13_trade_plots.R` | `edges_raw.rds`, `nodes.rds` | `plots/output/fig0*.pdf` |
-
-## Notes
-
-- Scripts **must be run from the project root** (the folder containing `config.R`).
-  The Makefile enforces this automatically.
-- API calls in `01` and `02` cost Comtrade quota (free tier: 250 calls/day).
-  The script in `02` has checkpoint/resume logic — safe to interrupt and restart.
-- Taiwan does not report to UN Comtrade. Backend flows use OECD BTIGE;
-  frontend flows use Taiwan ITA (2022 only). The 2019 frontend network
-  therefore excludes Taiwan — documented as a limitation in the thesis.
-- The BE 2022 network is near-saturated (~88% density). ERGM covariate models
-  are unidentifiable at this density; only structural terms (`edges + mutual`)
-  are reported for that network. See thesis Section 4.3 for discussion.
+### Working directory
+All scripts must be run from the project root (the directory containing
+`config.R`). The working directory is checked implicitly: all file paths
+are relative (e.g., `"data/processed/..."`) and will fail if run from a
+subdirectory.

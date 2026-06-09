@@ -18,8 +18,8 @@
 #   data/processed/communities.rds         — named list of community objects
 #
 # Outputs (PDF, no screen display):
-#   thesis_project/plots/output/net_combined_2022.pdf     — patchwork 2-panel (2022 only)
-#   thesis_project/plots/output/net_combined_2019.pdf     — patchwork 2-panel (2019 robustness)
+#   plots/output/net_combined_2022.pdf     — patchwork 2-panel (2022 only)
+#   plots/output/net_combined_2019.pdf     — patchwork 2-panel (2019 robustness)
 #
 # Run from project root: Rscript plots/14_network_viz.R
 

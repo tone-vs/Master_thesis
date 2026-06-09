@@ -16,8 +16,8 @@
 #   data/processed/graph_backend_2022.rds
 #
 # Outputs:
-#   thesis_project/analyses/output/table_network_summary.tex          — 2022 networks
-#   thesis_project/analyses/output/table_network_summary_appendix.tex — 2019 networks
+#   analyses/output/table_network_summary.tex          — 2022 networks
+#   analyses/output/table_network_summary_appendix.tex — 2019 networks
 #
 # Run from project root: Rscript analyses/08_network_summary.R
 
