@@ -185,7 +185,7 @@ dotplot_rank <- function(cent_df, layer_colour) {
     labs(
       x       = "Out-strength (market-share weighted)",
       y       = NULL,
-      caption = NULL
+      caption = NULL,
     ) +
     theme_minimal(base_size = 10) +
     theme(
@@ -195,8 +195,8 @@ dotplot_rank <- function(cent_df, layer_colour) {
     )
 }
 
-p_dot_fe22 <- dotplot_rank(cent_fe_22, COL_FE)
-p_dot_be22 <- dotplot_rank(cent_be_22,  COL_BE)
+p_dot_fe22 <- dotplot_rank(cent_fe_22, COL_FE) + labs(title = "Front-end")
+p_dot_be22 <- dotplot_rank(cent_be_22,  COL_BE) + labs(title = "Back-end")
 
 p_cent_ranks <- p_dot_fe22 | p_dot_be22
 
