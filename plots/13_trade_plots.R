@@ -138,12 +138,12 @@ nor_imp_partners <- edges_all |>
 
 p_exp <- ggplot(nor_exp_partners,
                 aes(x = trade_m, y = partner_code, fill = layer_label)) +
-  geom_col(width = 0.65, alpha = 0.9) +
+  geom_col(width = 0.65, alpha = 0.9, colour = "white", linewidth = 0.3)+
   geom_text(
     data = ~ filter(.x, trade_m >= 1),
     aes(label = paste0("$", round(trade_m), "M")),
     position = position_stack(vjust = 0.5),
-    size = 2.6, colour = "black", fontface = "bold"
+    size = 2.6, colour = "white", fontface = "bold"
   ) +
   scale_fill_manual(values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
                     name = "Layer") +
@@ -153,12 +153,12 @@ p_exp <- ggplot(nor_exp_partners,
 
 p_imp <- ggplot(nor_imp_partners,
                 aes(x = trade_m, y = reporter_code, fill = layer_label)) +
-  geom_col(width = 0.65, alpha = 0.9) +
+  geom_col(width = 0.65, alpha = 0.9, colour = "white", linewidth = 0.3)+
   geom_text(
     data = ~ filter(.x, trade_m >= 1),
     aes(label = paste0("$", round(trade_m), "M")),
     position = position_stack(vjust = 0.5),
-    size = 2.6, colour = "black", fontface = "bold"
+    size = 2.6, colour = "white", fontface = "bold"
   ) +
   scale_fill_manual(values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
                     name = "Layer") +

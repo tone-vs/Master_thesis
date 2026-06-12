@@ -103,6 +103,13 @@ message("Graph attributes decorated.")
 # ── Shared theme ──────────────────────────────────────────────────────────────
 NET_CAPTION      <- "Sources: UN Comtrade; Taiwan ITA. igraph + ggraph. Author's calculations."
 notaiwan_CAPTION <- "Sources: UN Comtrade. Taiwan (TWN) excluded — ITA data 2022 only. igraph + ggraph. Author's calculations."
+TITLE_STYLE <- theme(
+  plot.title = element_text(
+    family   = "sans",
+    face     = "plain",
+    size     = 12
+  )
+)
 
 # ── Core plot function ────────────────────────────────────────────────────────
 #
@@ -157,10 +164,10 @@ network_plot <- function(g) {
 
 # ── Build all four individual plots ──────────────────────────────────────────
 
-p_fe_22 <- network_plot(g_fe_22)
-p_be_22 <- network_plot(g_be_22)
-p_fe_19 <- network_plot(g_fe_19)
-p_be_19 <- network_plot(g_be_19)
+p_fe_22 <- network_plot(g_fe_22) +   labs(title = "Front-end") + TITLE_STYLE
+p_be_22 <- network_plot(g_be_22) + labs(title = "Back-end") + TITLE_STYLE
+p_fe_19 <- network_plot(g_fe_19) + labs(title = "Front-end") + TITLE_STYLE
+p_be_19 <- network_plot(g_be_19) + labs(title = "Back-end") + TITLE_STYLE
 
 
 # ── Combined 2022 (side-by-side, thesis figure) ───────────────────────────────
