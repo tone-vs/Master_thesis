@@ -1,0 +1,48 @@
+# RStudio / R session files
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+Rplots.pdf
+
+# R environment files — contain API keys, never commit
+.Renviron
+.Renviron.sh
+
+# macOS system files
+.DS_Store
+
+# Intermediate API download cache — large, regenerable, not needed in repo
+data/raw/chunks/
+
+# Raw data files — too large for git; download instructions in README
+# data/raw/
+# data/semiconductor/
+
+# Processed data — regenerable from create_data/ pipeline
+data/processed/
+
+# Generated outputs inside R project subfolders — regenerable from scripts
+analyses/output/
+plots/output/
+
+# LaTeX project: ignore aux files but track generated outputs
+thesis_project/analyses/output/
+thesis_project/plots/output/
+# Un-ignore the generated .tex and figure files so they are committed
+!thesis_project/analyses/output/*.tex
+!thesis_project/plots/output/*.pdf
+!thesis_project/plots/output/*.png
+
+# LaTeX auxiliary files
+*.aux
+*.log
+*.out
+*.toc
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+# Claude / Positron internal
+.positai
+.claude/
