@@ -1,9 +1,8 @@
 # plots/14_network_viz.R — ggraph Network Visualisations
 #
 # Renders Fruchterman-Reingold network layouts for all four layer × year
-# combinations. Node size = out-strength; fill = Louvain community; Norway
-# is highlighted as a diamond shape. Edge width and alpha scale with
-# bilateral market share.
+# combinations. Node size = out-strength; fill = Louvain community;
+# Edge width and alpha scale with bilateral market share.
 #
 # All igraph vertex/edge attribute access uses the igraph:: prefix so this
 # script is safe after statnet has been loaded elsewhere in the project.
@@ -127,10 +126,10 @@ network_plot <- function(g) {
       show.legend = FALSE
     ) +
     geom_node_point(
-      aes(size   = str_out,
-          fill   = as.factor(community),
-          shape  = is_norway),
+      aes(size = str_out,
+          fill = as.factor(community)),
       colour = "grey30",
+      shape  = 21,
       stroke = 0.4
     ) +
     geom_node_text(
@@ -146,7 +145,7 @@ network_plot <- function(g) {
     scale_size(range = c(2, 12), guide = "none") +
     scale_fill_brewer(palette = "Set2", name = "Community") +
     scale_shape_manual(
-      values = c("FALSE" = 21, "TRUE" = 23),
+      values = c("FALSE" = 21, "TRUE" = 21),
       guide  = "none"
     ) +
     scale_colour_manual(
