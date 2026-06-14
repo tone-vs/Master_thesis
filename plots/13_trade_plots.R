@@ -116,7 +116,7 @@ message("Saved: ", file.path(DIRS$figures, "fig_norway_hs_combined.pdf"))
 
 nor_exp_partners <- edges_all |>
   filter(year == 2022, reporter_code == FOCAL_COUNTRY) |>
-  mutate(layer_label = if_else(layer == "layer1_frontend", "Frontend (L1)", "Backend (L2)")) |>
+  mutate(layer_label = if_else(layer == "layer1_frontend", "Front-end (L1)", "Back-end (L2)")) |>
   group_by(partner_code, layer_label) |>
   summarise(trade_m = sum(trade_value_usd, na.rm = TRUE) / 1e6, .groups = "drop") |>
   group_by(partner_code) |>
@@ -127,7 +127,7 @@ nor_exp_partners <- edges_all |>
 
 nor_imp_partners <- edges_all |>
   filter(year == 2022, partner_code == FOCAL_COUNTRY)|>
-  mutate(layer_label = if_else(layer == "layer1_frontend", "Frontend (L1)", "Backend (L2)")) |>
+  mutate(layer_label = if_else(layer == "layer1_frontend", "Front-end (L1)", "Back-end (L2)")) |>
   group_by(reporter_code, layer_label) |>
   summarise(trade_m = sum(trade_value_usd, na.rm = TRUE) / 1e6, .groups = "drop") |>
   group_by(reporter_code) |>
@@ -145,7 +145,7 @@ p_exp <- ggplot(nor_exp_partners,
     position = position_stack(vjust = 0.5),
     size = 2.6, colour = "white", fontface = "bold"
   ) +
-  scale_fill_manual(values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
+  scale_fill_manual(values = c("Front-end (L1)" = COL_FE, "Back-end (L2)" = COL_BE),
                     name = "Layer") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Export destinations", x = "USD million", y = NULL) +
@@ -160,7 +160,7 @@ p_imp <- ggplot(nor_imp_partners,
     position = position_stack(vjust = 0.5),
     size = 2.6, colour = "white", fontface = "bold"
   ) +
-  scale_fill_manual(values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
+  scale_fill_manual(values = c("Front-end (L1)" = COL_FE, "Back-end (L2)" = COL_BE),
                     name = "Layer") +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   labs(title = "Import sources", x = "USD million", y = NULL) +
