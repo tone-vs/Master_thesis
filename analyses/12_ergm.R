@@ -51,7 +51,7 @@
 #   plots/output/fig_ergm_gof_fe19.pdf          — GoF FE 2019 M3
 #
 # Run from project root: Rscript analyses/12_ergm.R
-# WARNING: MCMC estimation is slow — allow 30–90 min on a laptop.
+
 
 # =============================================================================
 # 1. Load igraph objects BEFORE loading statnet (igraph:: prefix used below)
@@ -292,7 +292,7 @@ ergm_ctrl <- ergm::control.ergm(
 
 # ── BE 2022 ───────────────────────────────────────────────────────
 
-# Pre-flight dimension check
+
 stopifnot(
   "unga_mat rows != network size" =
     nrow(prep_be_22$unga_mat) == network::network.size(prep_be_22$net),

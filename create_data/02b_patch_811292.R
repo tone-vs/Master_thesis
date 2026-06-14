@@ -9,7 +9,7 @@
 # one-time fix applied when 811292 was missing from the original pull.
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #
-# Targeted patch: add HS 811292 (gallium, germanium, hafnium, rhenium, vanadium)
+# Targeted patch: add HS 811292 (gallium, germanium)
 # to the existing semiconductor network data.
 #
 # Why: China produces 98% of world gallium and used export controls in 2023,

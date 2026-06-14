@@ -48,7 +48,7 @@ message("Inputs loaded: ", nrow(centrality_all), " centrality observations.")
 
 # ── Shared constants ──────────────────────────────────────────────────────────
 COL_NOR    <- "red3"      # Norway highlight
-COL_NOR_RANK    <- "#E69F00"  # Norway highlight for dot plots against coloured segments
+COL_NOR_RANK    <- "#E69F00"  # Norway highlight for dot plots against colored segments
 COL_OTHER  <- "steelblue"
 CAPTION_SRC <- "Sources: UN Comtrade; Taiwan ITA. Author's calculations."
 

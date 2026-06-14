@@ -1,10 +1,7 @@
 # analyses/11_multiplex.R — Multiplex / Inter-Layer Centrality Analysis
 #
 # Tests whether a country's structural position in the frontend layer predicts
-# its position in the backend layer (and vice versa). The Pearson correlations
-# operationalise the "multiplex consistency" hypothesis: if semiconductor value
-# chains are hierarchically integrated, positions should be correlated across
-# layers but not identical.
+# its position in the backend layer (and vice versa).
 #
 # No igraph package is loaded here — all inputs come from centrality_all.rds
 # (a plain data frame produced by 09_centrality.R). This script is purely
@@ -48,7 +45,7 @@ message("Years:  ", paste(unique(centrality_all$year),  collapse = ", "))
 #  Pivot to wide format so each country has one row with frontend and backend
 #  centrality scores side by side, then compute pairwise correlations.
 #  Correlations are reported for out-strength, betweenness, and eigenvector
-#  (degree is omitted — it is integer-valued and less informative in dense nets).
+#  (degree is omitted).
 # =============================================================================
 
 multiplex_22 <- centrality_all |>
@@ -102,7 +99,7 @@ write_tex(
 #
 #  For each country, computes the absolute and relative change in out-strength
 #  and betweenness across years within each layer. Norway highlighted.
-#  Captures COVID and CHIPS Act effects on network position.
+
 # =============================================================================
 
 change_tbl <- centrality_all |>

@@ -1,7 +1,6 @@
 # plots/14_network_viz.R — ggraph Network Visualisations
 #
-# Renders Fruchterman-Reingold network layouts for all four layer × year
-# combinations. Node size = out-strength; fill = Louvain community;
+# Node size = out-strength; fill = Louvain community;
 # Edge width and alpha scale with bilateral market share.
 #
 # All igraph vertex/edge attribute access uses the igraph:: prefix so this
@@ -112,7 +111,7 @@ TITLE_STYLE <- theme(
 
 # ── Core plot function ────────────────────────────────────────────────────────
 #
-# layout = "fr" (Fruchterman-Reingold) is set INSIDE ggraph() so the same
+# layout = "fr" (Fruchterman-Reingold) is set INSIDE ggraph() 
 # seed controls the layout; set.seed() is called immediately before ggraph().
 # The layout is not stored as a separate object — ggraph computes it
 # when the plot is built by ggsave().

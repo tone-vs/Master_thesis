@@ -138,8 +138,7 @@ selected <- country_totals |>
 
 # Force Norway in if not already selected
 # SWE, FIN, DNK are Nordic comparators forced in at script 02
-# via FORCED_INCLUSIONS — they are within the 99% threshold
-# so this distinction has no effect on the final country set.
+# via FORCED_INCLUSIONS
 norway_in_selection <- FOCAL_COUNTRY %in% selected$reporter_code
 if (!norway_in_selection) {
   norway_row <- country_totals |> filter(reporter_code == FOCAL_COUNTRY)
@@ -200,7 +199,7 @@ message("\nSaved: country_selection.csv — use for thesis appendix table")
 
 } # end: else (country_selection.csv not found)
 
-# 5. Pull total exports across all goods — needed for RCA denominator
+# 5. Pull total exports across all goods — needed for RCA 
 # Include FORCED_INCLUSIONS (e.g. Nordic comparators) even if below coverage
 # threshold, so their RCA denominator is available in 05_build_network_data.R.
 # Cache: skip if total_exports.csv already exists.

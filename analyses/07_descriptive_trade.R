@@ -143,8 +143,6 @@ write_tex(
 # TABLE 3 — Layer asymmetry: Norway's export/import ratio by layer and year
 #
 #   Export/Import ratio > 1 = net exporter.
-#   Frontend surplus vs backend deficit captures the silicon-upstream /
-#   chip-downstream asymmetry central to the thesis argument.
 # =============================================================================
 
 layer_asymmetry <- norway_flows |>
@@ -210,7 +208,7 @@ write_tex(
 # TABLE 5 — Norway's top import products by HS6 code (2022)
 #
 #   partner_code == FOCAL_COUNTRY: Norway is the importing country,
-#   reporter_code is the exporting country (Comtrade convention).
+#   reporter_code is the exporting country.
 #   Aggregated across all exporting partners.
 # =============================================================================
 

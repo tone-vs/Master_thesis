@@ -10,13 +10,13 @@
 #        data/processed/country_selection.csv  (produced by 01_country_selection.R)
 #
 #   2. Forced inclusions:
-#      Norway    — focal country (REC Silicon, Elkem; Ponte & Sturgeon 2014)
-#      Sweden    — Nordic comparator (Ericsson, Nordic Chip Collaboration 2024)
-#      Finland   — Nordic comparator (Nokia, Nordic Chip Collaboration 2024)
-#      Denmark   — Nordic comparator (Nordic Chip Collaboration 2024)
+#      Norway    — focal country 
+#      Sweden    — Nordic comparator
+#      Finland   — Nordic comparator 
+#      Denmark   — Nordic comparator 
 #      These four are included regardless of their export rank.
 #
-#   Flow threshold: bilateral flows below $1M USD are dropped as noise
+#   Flow threshold: bilateral flows below $1,000 USD are dropped as noise
 
 # API: UN Comtrade v2 — free tier: 250 calls/day, 1 call/sec
 #   Get a key at: https://comtradeplus.un.org/

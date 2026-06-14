@@ -21,7 +21,7 @@
 #
 # Run from project root: Rscript analyses/08_network_summary.R
 
-library(igraph)   # loaded for class dispatch; all calls use igraph:: prefix
+library(igraph) 
 library(dplyr)
 
 source("config.R")
@@ -87,7 +87,6 @@ network_stats <- function(g, layer_label, yr) {
     `Global CC`       = round(igraph::transitivity(g_ud, type = "global"),  3),
     `Avg CC`          = round(igraph::transitivity(g_ud, type = "average"), 3),
     # Weighted average path length — directed, using inverted weights
-    # NaN if graph is not strongly connected (expected for sparse networks)
     `Avg path length` = round(
       igraph::mean_distance(g, directed = TRUE, weights = igraph::E(g)$path_weight),
       2

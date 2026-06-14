@@ -111,7 +111,7 @@ message("Saved: ", file.path(DIRS$figures, "fig_norway_hs_combined.pdf"))
 # FIGURE 2 -- Norway's top trade partners by layer (2022)
 #
 #   Left panel: export destinations | Right panel: import sources
-#   Bars stacked by layer (Frontend L1 = blue, Backend L2 = coral)
+#   Bars stacked by layer (Front-end L1 = blue, Backnend L2 = coral)
 # =============================================================================
 
 nor_exp_partners <- edges_all |>

@@ -320,8 +320,7 @@ write_tex(
 # ── TABLE 3 — Full community structure (2022 only) ────────────────────────────
 #
 # Lists every detected community with its members for 2022 networks.
-# This is the primary substantive table — community composition reveals
-# geopolitical clustering (US-allied vs China-centric blocs).
+
 
 make_comm_df <- function(comm, g, layer_label) {
   tibble(
