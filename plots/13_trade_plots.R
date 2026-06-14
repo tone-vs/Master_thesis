@@ -58,7 +58,7 @@ make_hs_panel <- function(direction_col) {
     group_by(hs_code, layer) |>
     summarise(trade_m = sum(trade_value_usd, na.rm = TRUE) / 1e6,   hs_desc = first(hs_desc), .groups = "drop") |>
     mutate(
-      layer_label = if_else(layer == "layer1_frontend", "Frontend (L1)", "Backend (L2)"),
+      layer_label = if_else(layer == "layer1_frontend", "Front-end (L1)", "Back-end (L2)"),
       hs_label    = paste0(hs_code, "\n", str_trunc(hs_desc, 35))
     ) |>
     slice_max(trade_m, n = 8, with_ties = FALSE) |>
@@ -75,7 +75,7 @@ make_hs_panel <- function(direction_col) {
     ) +
     scale_colour_identity() +
     scale_fill_manual(
-      values = c("Frontend (L1)" = COL_FE, "Backend (L2)" = COL_BE),
+      values = c("Front-end (L1)" = COL_FE, "Back-end (L2)" = COL_BE),
       name   = "Layer"
     ) +
     scale_x_continuous(
