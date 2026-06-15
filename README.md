@@ -7,8 +7,8 @@ Supervisor: Francisco Villamil
 
 ## Project overview
 
-This repository analyses Norway's structural position in the global semiconductor
-value chain using network analysis (SNA) and Exponential Random Graph Models
+This repository analyses the global semiconductor value chain and Norway's structural position in it
+using network analysis (SNA) and Exponential Random Graph Models
 (ERGMs). The pipeline constructs bilateral trade networks from UN Comtrade data
 and Taiwan ITA customs data, computes centrality and community structure, and
 estimates ERGM models to explain the probability of trade ties between countries.
@@ -79,7 +79,7 @@ Rscript analyses/08_network_summary.R
 Rscript analyses/09_centrality.R
 Rscript analyses/10_community_detection.R
 Rscript analyses/11_multiplex.R
-Rscript analyses/12_ergm.R          # WARNING: MCMC estimation ~30-90 min
+Rscript analyses/12_ergm.R          
 
 # Visualisations (depend on analyses/09 and 10)
 Rscript plots/13_trade_plots.R
