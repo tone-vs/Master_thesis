@@ -176,17 +176,19 @@ write_tex(
 
 crosslayer_wide <- centrality_all |>
   filter(year == 2022) |>
-  select(iso3, is_norway, layer, strength_out, eigenvector) |>
+  select(iso3, is_norway, layer, strength_out, eigenvector, betweenness) |>
   pivot_wider(
     id_cols     = c(iso3, is_norway),
     names_from  = layer,
-    values_from = c(strength_out, eigenvector)
+    values_from = c(strength_out, eigenvector, betweenness)
   ) |>
   rename(
     `FE Out-strength` = `strength_out_Front-end`,
     `BE Out-strength` = `strength_out_Back-end`,
     `FE Eigenvector`  = `eigenvector_Front-end`,
-    `BE Eigenvector`  = `eigenvector_Back-end`
+    `BE Eigenvector`  = `eigenvector_Back-end`,
+    `FE Betweenness`  = `betweenness_Front-end`,
+    `BE Betweenness`  = `betweenness_Back-end`
   ) |>
   mutate(
     avg_eigen = (`FE Eigenvector` + `BE Eigenvector`) / 2,
@@ -204,7 +206,9 @@ crosslayer_22    <- bind_rows(crosslayer_top5, crosslayer_nor) |>
     `FE Out-strength`,
     `BE Out-strength`,
     `FE Eigenvector`,
-    `BE Eigenvector`
+    `BE Eigenvector`,
+    `FE Betweenness`,
+    `BE Betweenness`
   ) |>
   mutate(across(where(is.double), ~round(.x, 4)))
 
@@ -215,8 +219,9 @@ write_tex(
   crosslayer_22,
   path    = file.path(DIRS$tables, "table_multiplex_crosslayer.tex"),
   caption = paste0(
-    "Cross-layer out-strength and eigenvector centrality, 2022 ",
+    "Cross-layer out-strength, eigenvector, and betweenness centrality, 2022 ",
     "(top 5 countries by average eigenvector centrality across layers, plus Norway). ",
+    "Betweenness is normalised to [0,1]; higher values indicate chokepoint positions. ",
     "Sorted by average eigenvector centrality (descending)."
   ),
   label   = "tab:multiplex-crosslayer"
