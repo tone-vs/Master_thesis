@@ -1,6 +1,6 @@
 # Norway's Position In The Semiconductor Value Chain During Geopolitical Realignment 
 
-Master's thesis — UC3M, 2025.  
+Master's thesis — UC3M, 2026.  
 Supervisor: Francisco Villamil
 
 ---
